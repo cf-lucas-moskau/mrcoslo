@@ -24,35 +24,31 @@ const Navbar: React.FC = () => {
 
   const controls = useAnimation();
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [lastActionScrollY, setLastActionScrollY] = useState(0);
+  const [lastActionScrollTime, setLastActionScrollTime] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-
-      if (currentScrollY > lastScrollY) {
-        // Scrolling down
-        controls.start({
-          y: "-100%", // Sling up
-          transition: {
-            type: "spring", // Use spring physics for bounce effect
-            stiffness: 700, // How stiff the spring is. Higher numbers will make the bounce tighter
-            damping: 20, // How the spring slows down. Lower numbers mean more bounce
-            duration: 0.3, // Make it quicker
-          },
-        });
-      } else {
-        // Scrolling up
-        controls.start({
-          y: 0, // Back to original position
-          transition: {
-            type: "spring", // Spring animation for a cohesive effect
-            stiffness: 700,
-            damping: 20,
-            duration: 0.3, // Quicker transition
-          },
-        });
+      // Scroll Down: Make navbar slightly transparent
+      if (lastActionScrollTime + 200 > Date.now()) {
+        return;
       }
-      setLastScrollY(currentScrollY); // Update lastScrollY
+
+      if (currentScrollY > lastActionScrollY + 80) {
+        controls.start({ opacity: 0 });
+        const timeoutId = setTimeout(() => {
+          controls.start({ display: "none" });
+        }, 200);
+        setLastActionScrollY(currentScrollY);
+        setLastActionScrollTime(Date.now());
+      }
+      // Scroll Up: Make navbar fully opaque
+      else if (currentScrollY < lastActionScrollY) {
+        controls.start({ opacity: 1, display: "block" });
+        setLastActionScrollY(currentScrollY);
+      }
+      setLastScrollY(currentScrollY);
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -66,7 +62,7 @@ const Navbar: React.FC = () => {
 
   return (
     <motion.div
-      initial={{ y: 0 }}
+      initial={{ y: 0, opacity: 1 }}
       animate={controls}
       style={{ width: "100%", position: "fixed", top: 0, left: 0 }}
     >

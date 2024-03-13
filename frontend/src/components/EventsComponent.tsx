@@ -22,7 +22,10 @@ const EventsComponent = () => {
 
   useEffect(() => {
     fetch("https://backend.aumueller-druck.de/employees/mrcoslo")
-      .then((response) => response.json())
+      .then((response) => {
+        console.log(response);
+        return response.json();
+      })
       .then((data) => {
         setEvents(data);
         setIsLoading(false); // Set loading to false once data is received

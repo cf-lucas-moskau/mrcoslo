@@ -14,16 +14,18 @@ const RunDaysComponent = () => {
       day: "Mondays",
       title: "Beginner’s Joy Run",
       description:
-        "Join us by running a gentle 3km, 5km or 7km to ease into the week. We will run in several pace groups, so everyone can join. Join a group with a distance and pace that you can keep up with so you can socialise.",
+        "Join us by running a gentle 3km, 5km or 7km to ease into the week. We will run in several pace groups, so everyone can join. Join a group with a distance and pace that you can keep up with so you can socialise, or pick a group that will challenge you - and upon return at the bar, you have the chance to buy a beer (or several) and mingle with all other runners. Join us!",
       place: "Where? Henry & Sally's",
-      time: "When? 6:30 PM",
+      time: "When? 18:00",
+      detailUrl: "/runs/monday",
       imageUrl: "images/MondayRun.jpg", // Replace with your image URL
     },
     {
       day: "Thursdays",
       title: "Track Intervalls",
       place: "Where? Bislett Stadion",
-      time: "When? 6:30 PM",
+      time: "When? 19:30",
+      detailUrl: "/runs/thursday",
       description:
         "Short runs to become a better & faster runner, but still a social training: This is MRC's Thursday Track Attack; intervals & Core! No matter how fast/slow/(un)trained you are, you can always run short distances on a 'heavy breathing' level to improve your fitness! We will create two sessions; one for short intervals (up to 400m.) and one for long intervals (from 400m).",
       imageUrl: "images/thursdayRun.jpg", // Replace with your image URL
@@ -32,7 +34,8 @@ const RunDaysComponent = () => {
       day: "Sundays",
       title: "Long Run Sunday",
       place: "Where? Henry & Sally's",
-      time: "When? 6:30 PM",
+      time: "When? 11:00",
+      detailUrl: "/runs/sunday",
       description:
         "Sundays are for long runs! And what better way to do it than with your friends from MRC Oslo!  If you want to join for a part of the run, that is possible too, just let us know where you will join in or drop out, and we will look out for you! We will try to accommodate everyone, and therefor have two different pace groups! One around 5:30 per km, and a group around 6:30 per km!",
       imageUrl: "images/sundayRun.jpg", // Replace with your image URL
@@ -55,7 +58,10 @@ const RunDaysComponent = () => {
       </Heading>
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={10} maxW={"1000px"}>
         {runDays.map(
-          ({ day, title, description, imageUrl, place, time }, index) => (
+          (
+            { day, title, description, imageUrl, place, time, detailUrl },
+            index
+          ) => (
             <Box
               key={index}
               p={5}
@@ -83,6 +89,22 @@ const RunDaysComponent = () => {
               <Text mt={2}>
                 <strong>{time}</strong>
               </Text>
+              <Button
+                as="a"
+                href={detailUrl}
+                mt={4}
+                target="_blank"
+                marginTop={"30px"}
+                position="unset"
+                rel="noreferrer"
+                backgroundColor="#204081"
+                color="#D5B2D3"
+                size="lg"
+                marginBottom={"30px"}
+                // stick to bottom
+              >
+                Learn More
+              </Button>
             </Box>
           )
         )}
