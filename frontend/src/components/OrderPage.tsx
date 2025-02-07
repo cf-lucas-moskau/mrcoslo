@@ -23,6 +23,7 @@ import {
   useDisclosure,
   FormControl,
   FormLabel,
+  Stack,
 } from "@chakra-ui/react";
 import { FaTrash, FaPlus, FaSignOutAlt } from "react-icons/fa";
 import { db } from "../firebase";
@@ -52,6 +53,7 @@ interface User {
 }
 
 const ADMIN_PASSWORD = "mrcoslo"; // Password for clearing orders
+const USER_TTL_MS = 1000 * 60 * 30; // 30 minutes TTL
 
 const OrderPage: React.FC = () => {
   const [name, setName] = useState("");
@@ -87,7 +89,23 @@ const OrderPage: React.FC = () => {
     onClose: onExportModalClose,
   } = useDisclosure();
 
-  // Check for existing login on component mount
+  // Add cleanup function for expired users
+  const cleanupExpiredUsers = async () => {
+    const activeUsersRef = ref(db, "activeUsers");
+    const snapshot = await get(activeUsersRef);
+    const data = snapshot.val();
+
+    if (data) {
+      const now = Date.now();
+      Object.entries(data).forEach(async ([key, value]: [string, any]) => {
+        if (value.timestamp && now - value.timestamp > USER_TTL_MS) {
+          await remove(ref(db, `activeUsers/${key}`));
+        }
+      });
+    }
+  };
+
+  // Modify the initial login useEffect
   useEffect(() => {
     const savedUser = localStorage.getItem("mrcoslo_user");
     if (savedUser) {
@@ -95,33 +113,60 @@ const OrderPage: React.FC = () => {
       setUser(parsedUser);
       setName(parsedUser.name);
 
-      // Set up disconnect handler for existing user
+      // Re-add user to active users and set up disconnect handler
       const activeUsersRef = ref(db, "activeUsers");
-      get(activeUsersRef).then((snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          const userEntry = Object.entries(data).find(
-            ([_, userName]) => userName === parsedUser.name
-          );
-          if (userEntry) {
-            const userRef = ref(db, `activeUsers/${userEntry[0]}`);
+      const setupUser = async () => {
+        try {
+          await cleanupExpiredUsers(); // Clean up expired users first
+
+          // First check if user already exists
+          const snapshot = await get(activeUsersRef);
+          const data = snapshot.val();
+          const existingUserEntry = data
+            ? Object.entries(data).find(
+                ([_, value]: [string, any]) => value.name === parsedUser.name
+              )
+            : null;
+
+          if (!existingUserEntry) {
+            // User not in active list, add them with timestamp
+            const newUserRef = await push(activeUsersRef, {
+              name: parsedUser.name,
+              timestamp: Date.now(),
+            });
+            onDisconnect(newUserRef).remove();
+          } else {
+            // Update existing user's timestamp
+            const userRef = ref(db, `activeUsers/${existingUserEntry[0]}`);
+            await set(userRef, {
+              name: parsedUser.name,
+              timestamp: Date.now(),
+            });
             onDisconnect(userRef).remove();
           }
+        } catch (error) {
+          console.error("Error setting up user presence:", error);
         }
-      });
+      };
+
+      setupUser();
+
+      // Set up periodic cleanup
+      const cleanup = setInterval(cleanupExpiredUsers, USER_TTL_MS / 2);
+      return () => clearInterval(cleanup);
     } else {
       onOpen();
     }
   }, [onOpen]);
 
-  // Subscribe to active users list
+  // Modify the active users subscription
   useEffect(() => {
     const activeUsersRef = ref(db, "activeUsers");
 
     const unsubscribe = onValue(activeUsersRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setActiveUsers(Object.values(data));
+        setActiveUsers(Object.values(data).map((user: any) => user.name));
       } else {
         setActiveUsers([]);
       }
@@ -189,6 +234,7 @@ const OrderPage: React.FC = () => {
     Snacks: ["Chicken Wings", "Nachos", "Mozzarella Sticks", "Garlic Bread"],
   };
 
+  // Modify the handleLogin
   const handleLogin = async () => {
     if (!name.trim()) {
       toast({
@@ -202,7 +248,7 @@ const OrderPage: React.FC = () => {
 
     const trimmedName = name.trim();
     const nameExists = activeUsers.some(
-      (userName) => userName.toLowerCase() === trimmedName.toLowerCase()
+      (userName: string) => userName.toLowerCase() === trimmedName.toLowerCase()
     );
 
     if (nameExists) {
@@ -218,7 +264,10 @@ const OrderPage: React.FC = () => {
 
     try {
       const activeUsersRef = ref(db, "activeUsers");
-      const newUserRef = await push(activeUsersRef, trimmedName);
+      const newUserRef = await push(activeUsersRef, {
+        name: trimmedName,
+        timestamp: Date.now(),
+      });
       onDisconnect(newUserRef).remove();
 
       const newUser = { name: trimmedName };
@@ -598,10 +647,10 @@ const OrderPage: React.FC = () => {
 
       <VStack spacing={8} align="stretch">
         <Box textAlign="center" position="relative">
-          <Heading size="2xl" mb={4}>
+          <Heading size={{ base: "xl", md: "2xl" }} mb={4}>
             Post-Run Drink Orders
           </Heading>
-          <Text fontSize="lg" color="gray.600" mb={2}>
+          <Text fontSize={{ base: "md", md: "lg" }} color="gray.600" mb={2}>
             Add your drink order for after the run
           </Text>
           <Text fontSize="md" color="green.500">
@@ -609,19 +658,21 @@ const OrderPage: React.FC = () => {
             {activeUsers.length === 1 ? "person" : "people"} currently online
           </Text>
           <Button
-            position="absolute"
+            position={{ base: "relative", md: "absolute" }}
             right="0"
             top="0"
             colorScheme="gray"
             size="sm"
             leftIcon={<FaSignOutAlt />}
             onClick={handleLogout}
+            mt={{ base: 4, md: 0 }}
+            w={{ base: "full", md: "auto" }}
           >
             Logout
           </Button>
         </Box>
 
-        <Box bg="white" p={6} borderRadius="lg" boxShadow="md">
+        <Box bg="white" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="md">
           <VStack spacing={4}>
             <Input
               placeholder="Your Name"
@@ -632,7 +683,7 @@ const OrderPage: React.FC = () => {
 
             <Divider />
 
-            <Heading size="md" alignSelf="start">
+            <Heading size="md" alignSelf="start" w="full">
               Drink Order
             </Heading>
             <Select
@@ -649,11 +700,15 @@ const OrderPage: React.FC = () => {
 
             <Divider />
 
-            <Heading size="md" alignSelf="start">
+            <Heading size="md" alignSelf="start" w="full">
               Food Order
             </Heading>
 
-            <HStack width="100%" spacing={4}>
+            <Stack
+              width="100%"
+              spacing={4}
+              direction={{ base: "column", md: "row" }}
+            >
               <Select
                 placeholder="Select Category"
                 value={foodCategory}
@@ -684,7 +739,7 @@ const OrderPage: React.FC = () => {
                     )
                   )}
               </Select>
-            </HStack>
+            </Stack>
 
             <Text fontSize="sm" color="gray.600" alignSelf="start">
               Can't find what you want? Use the special food order below:
@@ -699,7 +754,7 @@ const OrderPage: React.FC = () => {
 
             <Divider />
 
-            <Heading size="md" alignSelf="start">
+            <Heading size="md" alignSelf="start" w="full">
               Special Request
             </Heading>
             <Text fontSize="sm" color="gray.600" alignSelf="start">
@@ -716,6 +771,7 @@ const OrderPage: React.FC = () => {
               leftIcon={<FaPlus />}
               onClick={handleSubmit}
               w="100%"
+              size={{ base: "lg", md: "md" }}
             >
               Add Order
             </Button>
@@ -725,9 +781,20 @@ const OrderPage: React.FC = () => {
         <Divider />
 
         <Box>
-          <HStack justify="space-between" mb={4}>
-            <Heading size="lg">Current Orders ({orders.length})</Heading>
-            <HStack spacing={2}>
+          <Stack
+            direction={{ base: "column", md: "row" }}
+            justify="space-between"
+            mb={4}
+            spacing={{ base: 4, md: 0 }}
+          >
+            <Heading size={{ base: "md", md: "lg" }}>
+              Current Orders ({orders.length})
+            </Heading>
+            <Stack
+              direction={{ base: "column", md: "row" }}
+              spacing={2}
+              w={{ base: "full", md: "auto" }}
+            >
               {orders.length > 0 && (
                 <>
                   <Button
@@ -735,6 +802,7 @@ const OrderPage: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={handleExport}
+                    w={{ base: "full", md: "auto" }}
                   >
                     Export Orders
                   </Button>
@@ -743,13 +811,14 @@ const OrderPage: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={onClearModalOpen}
+                    w={{ base: "full", md: "auto" }}
                   >
                     Clear All Orders
                   </Button>
                 </>
               )}
-            </HStack>
-          </HStack>
+            </Stack>
+          </Stack>
 
           {orders.length === 0 ? (
             <Text color="gray.500" textAlign="center" py={8}>
@@ -766,14 +835,23 @@ const OrderPage: React.FC = () => {
                   borderColor="gray.200"
                   bg="white"
                 >
-                  <HStack justify="space-between">
-                    <VStack align="start" spacing={1}>
-                      <HStack>
+                  <Stack
+                    direction={{ base: "column", md: "row" }}
+                    justify="space-between"
+                    align={{ base: "stretch", md: "flex-start" }}
+                  >
+                    <VStack align="start" spacing={1} w="full">
+                      <Stack
+                        direction={{ base: "column", md: "row" }}
+                        align={{ base: "flex-start", md: "center" }}
+                        spacing={2}
+                        w="full"
+                      >
                         <Text fontWeight="bold">{order.name}</Text>
                         {order.drink && (
                           <Badge colorScheme="blue">{order.drink}</Badge>
                         )}
-                      </HStack>
+                      </Stack>
                       {order.foodItem && (
                         <Text fontSize="sm" color="gray.600">
                           Food: {order.foodCategory} - {order.foodItem}
@@ -782,11 +860,6 @@ const OrderPage: React.FC = () => {
                       {order.foodOrder && (
                         <Text fontSize="sm" color="gray.600">
                           Special Order: {order.foodOrder}
-                        </Text>
-                      )}
-                      {!order.foodItem && !order.foodOrder && order.notes && (
-                        <Text fontSize="sm" color="gray.600">
-                          Note: {order.notes}
                         </Text>
                       )}
                       {order.specialRequest && (
@@ -799,7 +872,6 @@ const OrderPage: React.FC = () => {
                         </Text>
                       )}
                     </VStack>
-                    {/* Only show delete button for user's own orders */}
                     {user?.name.toLowerCase() === order.name.toLowerCase() && (
                       <IconButton
                         aria-label="Remove order"
@@ -808,9 +880,11 @@ const OrderPage: React.FC = () => {
                         colorScheme="red"
                         variant="ghost"
                         onClick={() => removeOrder(order.id, order.name)}
+                        alignSelf={{ base: "flex-end", md: "flex-start" }}
+                        mt={{ base: 2, md: 0 }}
                       />
                     )}
-                  </HStack>
+                  </Stack>
                 </Box>
               ))}
             </SimpleGrid>
