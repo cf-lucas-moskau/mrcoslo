@@ -299,9 +299,9 @@ const OrderPage: React.FC = () => {
       const data = snapshot.val();
 
       if (data) {
-        // Find and remove the user's name
+        // Find and remove the user's name using the new data structure
         const userEntry = Object.entries(data).find(
-          ([_, userName]) => userName === user?.name
+          ([_, value]: [string, any]) => value.name === user?.name
         );
         if (userEntry) {
           await remove(ref(db, `activeUsers/${userEntry[0]}`));
