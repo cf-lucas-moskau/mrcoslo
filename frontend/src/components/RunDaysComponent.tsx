@@ -7,12 +7,13 @@ import {
   Heading,
   Image,
 } from "@chakra-ui/react";
+import { Link as RouterLink } from "react-router-dom";
 
 const RunDaysComponent = () => {
   const runDays = [
     {
       day: "Mondays",
-      title: "Beginner’s Joy Run",
+      title: "Beginner's Joy Run",
       description:
         "Join us by running a gentle 3km, 5km or 7km to ease into the week. We will run in several pace groups, so everyone can join. Join a group with a distance and pace that you can keep up with so you can socialise, or pick a group that will challenge you - and upon return at the bar, you have the chance to buy a beer (or several) and mingle with all other runners. Join us!",
       place: "Where? Henry & Sally's",
@@ -90,18 +91,15 @@ const RunDaysComponent = () => {
                 <strong>{time}</strong>
               </Text>
               <Button
-                as="a"
-                href={detailUrl}
+                as={RouterLink}
+                to={detailUrl}
                 mt={4}
-                target="_blank"
                 marginTop={"30px"}
                 position="unset"
-                rel="noreferrer"
                 backgroundColor="#204081"
                 color="#D5B2D3"
                 size="lg"
                 marginBottom={"30px"}
-                // stick to bottom
               >
                 Learn More
               </Button>

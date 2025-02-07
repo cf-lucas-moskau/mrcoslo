@@ -13,13 +13,37 @@ import {
 } from "@chakra-ui/react";
 import { HamburgerIcon } from "@chakra-ui/icons";
 import { motion, useAnimation } from "framer-motion";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 const Navbar: React.FC = () => {
-  const menuItems: { name: string; link: string }[] = [
-    { name: "Us", link: "#us" },
-    { name: "Regular Runs", link: "#regular-runs" },
-    { name: "Facebook Events", link: "#facebook-events" },
-    { name: "Contact", link: "#contact" },
+  const navigate = useNavigate();
+
+  const handleNavigation = (sectionId: string) => {
+    // If we're already on the home page, just scroll
+    if (window.location.pathname === "/") {
+      const element = document.getElementById(sectionId);
+      element?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      // If we're on a different page, navigate home and then scroll
+      navigate("/", { state: { scrollTo: sectionId } });
+    }
+  };
+
+  // Handle scrolling after navigation to home page
+  useEffect(() => {
+    if (window.location.pathname === "/") {
+      const state = window.history.state;
+      const scrollTo = state?.usr?.scrollTo;
+      if (scrollTo) {
+        const element = document.getElementById(scrollTo);
+        element?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, []);
+
+  const menuItems = [
+    { name: "Regular Runs", id: "regular-runs" },
+    { name: "Captains", id: "captains" },
   ];
 
   const controls = useAnimation();
@@ -30,7 +54,6 @@ const Navbar: React.FC = () => {
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      // Scroll Down: Make navbar slightly transparent
       if (lastActionScrollTime + 200 > Date.now()) {
         return;
       }
@@ -42,9 +65,7 @@ const Navbar: React.FC = () => {
         }, 200);
         setLastActionScrollY(currentScrollY);
         setLastActionScrollTime(Date.now());
-      }
-      // Scroll Up: Make navbar fully opaque
-      else if (currentScrollY < lastActionScrollY) {
+      } else if (currentScrollY < lastActionScrollY) {
         controls.start({ opacity: 1, display: "block" });
         setLastActionScrollY(currentScrollY);
       }
@@ -52,10 +73,7 @@ const Navbar: React.FC = () => {
     };
 
     window.addEventListener("scroll", handleScroll);
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [controls, lastScrollY]);
 
   const isMobile = useBreakpointValue({ base: true, md: false });
@@ -72,22 +90,24 @@ const Navbar: React.FC = () => {
         justify="space-between"
         wrap="wrap"
         padding="1.5rem"
-        bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)" // Gradient background
+        bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)"
         color="white"
       >
         <Flex align="center" mr={5} height={"5rem"}>
-          <Image
-            src="/images/mrc-logo.jpg"
-            alt="Logo"
-            position="absolute"
-            top="50%"
-            left="50%"
-            transform="translate(-50%, -50%)"
-            height={["130%", "140%"]} // This makes the logo overflow the Navbar height
-          />
+          <RouterLink to="/">
+            <Image
+              src="/images/mrc-logo.jpg"
+              alt="Logo"
+              position="absolute"
+              top="50%"
+              left="50%"
+              transform="translate(-50%, -50%)"
+              height={["130%", "140%"]}
+              cursor="pointer"
+            />
+          </RouterLink>
         </Flex>
 
-        {/* Menu Items */}
         {isMobile ? (
           <Menu>
             <MenuButton
@@ -98,17 +118,16 @@ const Navbar: React.FC = () => {
               color={"white"}
             />
             <MenuList
-              bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)" // Gradient background
+              bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)"
               color="white"
             >
-              {/* Add your menu items here */}
               {menuItems.map((item, index) => (
                 <MenuItem
                   key={index}
-                  as="a"
-                  href={item.link}
-                  bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)" // Gradient background
+                  onClick={() => handleNavigation(item.id)}
+                  bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)"
                   color="white"
+                  cursor="pointer"
                 >
                   {item.name}
                 </MenuItem>
@@ -116,11 +135,14 @@ const Navbar: React.FC = () => {
             </MenuList>
           </Menu>
         ) : (
-          // Desktop Menu
           <Stack direction="row" spacing={4}>
-            {/* Add your menu items here */}
-            {menuItems.map((item) => (
-              <Box as="a" href={item.link} _hover={{ textDecoration: "none" }}>
+            {menuItems.map((item, index) => (
+              <Box
+                key={index}
+                onClick={() => handleNavigation(item.id)}
+                cursor="pointer"
+                _hover={{ textDecoration: "none" }}
+              >
                 {item.name}
               </Box>
             ))}
