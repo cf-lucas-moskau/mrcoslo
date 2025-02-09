@@ -10,17 +10,15 @@ import RunDetailPage from "./components/RunDetailPage";
 import CaptainsComponent from "./components/CaptainsComponent";
 import CaptainsPage from "./components/CaptainsPage";
 import OrderPage from "./components/OrderPage";
+import RacesPage from "./components/RacesPage";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 function App() {
   return (
     <Router>
       <div>
-        <Box zIndex="1000" position={"relative"}>
-          <Navbar />
-        </Box>
-        {/* padding of navbar underneath */}
-        <Box marginTop="150px" zIndex={1}>
+        <Navbar />
+        <Box marginTop="80px">
           <Routes>
             <Route
               path="/"
@@ -32,13 +30,7 @@ function App() {
                     justifyContent="center"
                     alignItems="center"
                   >
-                    {/* This container centers the slider */}
-                    <Box
-                      maxWidth="1500px"
-                      width="100%"
-                      position="relative"
-                      zIndex="1"
-                    >
+                    <Box maxWidth="1500px" width="100%" position="relative">
                       <ImageSlider />
                     </Box>
                   </Box>
@@ -51,10 +43,9 @@ function App() {
             <Route path="/runs/:day" element={<RunDetailPage />} />
             <Route path="/captains" element={<CaptainsPage />} />
             <Route path="/order" element={<OrderPage />} />
+            <Route path="/races" element={<RacesPage />} />
           </Routes>
         </Box>
-
-        <Box h="50vh" />
       </div>
     </Router>
   );

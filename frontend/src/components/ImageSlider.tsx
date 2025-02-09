@@ -1,7 +1,9 @@
-import { Box, Heading, IconButton } from "@chakra-ui/react";
+import { Box, Heading, IconButton, useBreakpointValue } from "@chakra-ui/react";
 import React from "react";
 import Slider from "react-slick";
 import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 
 interface ArrowProps {
   className?: string;
@@ -13,36 +15,44 @@ const PrevArrow: React.FC<ArrowProps> = ({ onClick }) => {
   return (
     <IconButton
       aria-label="Previous slide"
-      icon={<ChevronLeftIcon />}
+      icon={<ChevronLeftIcon boxSize={6} />}
       position="absolute"
-      left="10px"
+      left={{ base: "5px", md: "10px" }}
       top="50%"
       transform="translateY(-50%)"
       zIndex="2"
       onClick={onClick}
-      // Apply any additional styling or props you need
+      bg="whiteAlpha.800"
+      _hover={{ bg: "whiteAlpha.900" }}
+      size={{ base: "sm", md: "md" }}
+      boxShadow="lg"
+      borderRadius="full"
+      display={{ base: "none", md: "flex" }}
     />
   );
 };
 
-// Custom Next Arrow
 const NextArrow: React.FC<ArrowProps> = ({ onClick }) => {
   return (
     <IconButton
       aria-label="Next slide"
-      icon={<ChevronRightIcon />}
+      icon={<ChevronRightIcon boxSize={6} />}
       position="absolute"
-      right="10px"
+      right={{ base: "5px", md: "10px" }}
       top="50%"
       transform="translateY(-50%)"
       zIndex="2"
       onClick={onClick}
-      // Apply any additional styling or props you need
+      bg="whiteAlpha.800"
+      _hover={{ bg: "whiteAlpha.900" }}
+      size={{ base: "sm", md: "md" }}
+      boxShadow="lg"
+      borderRadius="full"
+      display={{ base: "none", md: "flex" }}
     />
   );
 };
 
-// Sample images, replace these URLs with your actual image sources
 const images = [
   "images/pic1.jpg",
   "images/pic2.jpg",
@@ -51,30 +61,39 @@ const images = [
   "images/pic5.jpg",
   "images/pic6.jpg",
   "images/pic7.jpg",
-  // Add more images as needed
 ];
 
 const ImageSlider = () => {
-  // Settings for the slider
+  const slidesToShow = useBreakpointValue({ base: 1, md: 2, lg: 3 }) || 1;
+
   const settings = {
-    dots: true, // Show dot indicators at the bottom
-    infinite: true, // Infinite looping
-    speed: 500, // Transition speed
-    slidesToShow: 3, // Number of slides to show at once
-    slidesToScroll: 1, // Number of slides to scroll at once
-    autoplay: true, // Enable autoplay
-    autoplaySpeed: 2000, // Delay between each autoplay transition
-    cssEase: "linear", // Animation timing function
+    dots: true,
+    infinite: true,
+    speed: 800,
+    slidesToShow: slidesToShow,
+    slidesToScroll: 1,
+    autoplay: true,
+    autoplaySpeed: 4000,
+    pauseOnHover: true,
+    cssEase: "cubic-bezier(0.87, 0.03, 0.41, 0.9)",
     nextArrow: <NextArrow />,
     prevArrow: <PrevArrow />,
+    adaptiveHeight: true,
     responsive: [
       {
-        breakpoint: 768, // Adjust the number of slides for smaller screens
+        breakpoint: 480,
         settings: {
           slidesToShow: 1,
           slidesToScroll: 1,
-          infinite: true,
-          dots: true,
+          arrows: false,
+        },
+      },
+      {
+        breakpoint: 768,
+        settings: {
+          slidesToShow: 2,
+          slidesToScroll: 1,
+          arrows: false,
         },
       },
       {
@@ -82,52 +101,78 @@ const ImageSlider = () => {
         settings: {
           slidesToShow: 2,
           slidesToScroll: 1,
-          infinite: true,
-          dots: true,
         },
       },
     ],
   };
 
   return (
-    <div
-      className="my-slider"
-      style={{
-        overflow: "hidden",
-        marginBottom: "30px",
-        height: "480px",
-      }}
+    <Box
+      className="slider-container"
+      position="relative"
+      py={{ base: 6, md: 10 }}
+      px={{ base: 4, md: 8 }}
+      maxW="100vw"
+      overflow="hidden"
+      bg="gray.50"
     >
-      <Box
-        style={{ width: "100%", overflow: "hidden" }}
-        alignContent={"center"}
-        justifyContent={"center"}
-        alignItems={"center"}
-        display={"flex"}
-        marginTop={"40px"}
-        textAlign={"center"}
-      >
-        <Heading marginBottom={"30px"} as={"h2"}>
-          "Runners with a beer trinking problem"
+      <Box maxW="1200px" mx="auto" textAlign="center" mb={{ base: 6, md: 10 }}>
+        <Heading
+          as="h2"
+          size={{ base: "xl", md: "2xl" }}
+          color="#204081"
+          fontWeight="bold"
+        >
+          "Runners with a drinking problem"
         </Heading>
       </Box>
-      <Slider {...settings}>
-        {images.map((img, index) => (
-          <div key={index}>
-            <img
-              src={img}
-              alt={`Slide ${index}`}
-              style={{
-                width: "100%", // This makes the image take the full width of its container
-                height: "300px", // Fixed height for all images
-                objectFit: "cover", // Resize the image to cover the container while maintaining its aspect ratio
-                display: "block",
-              }}
-            />
-          </div>
-        ))}
-      </Slider>
-    </div>
+
+      <Box
+        sx={{
+          ".slick-slide": {
+            px: 2,
+          },
+          ".slick-dots": {
+            bottom: "-40px",
+            li: {
+              button: {
+                _before: {
+                  color: "gray.500",
+                  fontSize: "8px",
+                },
+              },
+            },
+            "li.slick-active button:before": {
+              color: "#204081",
+            },
+          },
+        }}
+      >
+        <Slider {...settings}>
+          {images.map((img, index) => (
+            <Box
+              key={index}
+              position="relative"
+              overflow="hidden"
+              borderRadius="lg"
+              boxShadow="lg"
+              transition="transform 0.3s ease"
+              _hover={{ transform: "scale(1.02)" }}
+            >
+              <Box
+                as="img"
+                src={img}
+                alt={`Slide ${index + 1}`}
+                w="100%"
+                h={{ base: "200px", md: "300px", lg: "400px" }}
+                objectFit="cover"
+                loading="lazy"
+              />
+            </Box>
+          ))}
+        </Slider>
+      </Box>
+    </Box>
   );
 };
 
