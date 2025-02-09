@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Function to handle saving user data to Firebase
-  const saveUserData = async (user: User) => {
+  const saveUserData = async (user: User, fbPhotoURL?: string) => {
     try {
       console.log("Saving user data for:", user.uid);
       const userRef = ref(db, `users/${user.uid}`);
@@ -59,11 +59,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: user.uid,
         name: user.displayName || "Anonymous User",
         email: user.email,
-        photoURL: user.photoURL,
+        photoURL: fbPhotoURL || user.photoURL,
         lastLogin: new Date().toISOString(),
       };
       await set(userRef, userData);
       setUserData(userData);
+      setCurrentUser({
+        ...user,
+        photoURL: fbPhotoURL || user.photoURL,
+      } as User);
     } catch (error) {
       console.error("Error saving user data:", error);
       throw error;
@@ -93,22 +97,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           // Update the user's profile with the high-res photo URL
           if (result.user && fbUserData.picture?.data?.url) {
-            await saveUserData({
-              ...result.user,
-              photoURL: fbUserData.picture.data.url,
-            });
+            await saveUserData(result.user, fbUserData.picture.data.url);
           } else {
             await saveUserData(result.user);
           }
 
           console.log("Firebase sign in successful:", result.user.uid);
 
-          // Clean up the URL
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname
-          );
+          // Clean up the URL and redirect back to original path if exists
+          const returnPath = sessionStorage.getItem("fbAuthReturnPath");
+          sessionStorage.removeItem("fbAuthReturnPath");
+          sessionStorage.removeItem("fbAuthState");
+
+          if (returnPath && returnPath !== "/") {
+            window.location.href = returnPath;
+          } else {
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
+          }
         } catch (error) {
           console.error("Error signing in with credential:", error);
         }
@@ -125,11 +134,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Facebook App ID not configured");
       }
 
-      const redirectUri = `${window.location.origin}${window.location.pathname}`;
+      // Always use root path for Facebook redirect
+      const redirectUri = `${window.location.origin}/`;
       const state = Math.random().toString(36).substring(7);
 
-      // Store state for validation
+      // Store state and return path for validation and redirect back
       sessionStorage.setItem("fbAuthState", state);
+      sessionStorage.setItem("fbAuthReturnPath", window.location.pathname);
 
       const facebookAuthUrl =
         `https://www.facebook.com/v12.0/dialog/oauth?` +

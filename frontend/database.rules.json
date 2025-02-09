@@ -18,6 +18,17 @@
         }
       }
     },
+    "orders": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$orderId": {
+        ".validate": "newData.hasChildren(['name', 'userId'])",
+        "name": { ".validate": "newData.isString()" },
+        "userId": {
+          ".validate": "newData.isString() && newData.val() === auth.uid"
+        }
+      }
+    },
     "raceCache": {
       ".read": true,
       ".write": "auth != null",
