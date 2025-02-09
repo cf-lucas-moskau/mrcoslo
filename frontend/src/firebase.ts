@@ -7,8 +7,20 @@ import {
 } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
+// Log environment variable status
+console.log("Environment Variables Status:", {
+  apiKeyExists: !!process.env.REACT_APP_GOOGLE_API_KEY,
+  nodeEnv: process.env.NODE_ENV,
+});
+
+if (!process.env.REACT_APP_GOOGLE_API_KEY) {
+  throw new Error(
+    "REACT_APP_GOOGLE_API_KEY is not defined in environment variables. Make sure you have a .env file with this variable."
+  );
+}
+
 const firebaseConfig = {
-  apiKey: "AIzaSyDPvsTvEV5Q_x24R9FTvk2PC32rrQ_bBHQ",
+  apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
   authDomain: "mrc-olso.firebaseapp.com",
   databaseURL:
     "https://mrc-olso-default-rtdb.europe-west1.firebasedatabase.app",

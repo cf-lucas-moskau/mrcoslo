@@ -1,6 +1,11 @@
 [
   {
-    "origin": ["*"],
+    "origin": [
+      "http://localhost:3000",
+      "https://*.vercel.app",
+      "https://www.running-oslo.com",
+      "https://running-oslo.com"
+    ],
     "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
     "maxAgeSeconds": 3600,
     "responseHeader": [

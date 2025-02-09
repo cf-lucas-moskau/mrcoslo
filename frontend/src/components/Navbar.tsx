@@ -13,6 +13,7 @@ import {
   Avatar,
   Button,
   Text,
+  HStack,
 } from "@chakra-ui/react";
 import { HamburgerIcon } from "@chakra-ui/icons";
 import { motion, useAnimation } from "framer-motion";
@@ -35,7 +36,7 @@ const Navbar: React.FC = () => {
   const [scrollDirection, setScrollDirection] = useState(SCROLL_UP);
   const [prevScrollY, setPrevScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
-  const { currentUser, userData, logout } = useAuth();
+  const { currentUser, userData, logout, signInWithFacebook } = useAuth();
 
   const handleNavigation = (sectionId: string) => {
     if (window.location.pathname === "/") {
@@ -154,7 +155,7 @@ const Navbar: React.FC = () => {
         boxShadow="0 2px 10px rgba(0,0,0,0.1)"
         height="80px"
       >
-        {/* Logo */}
+        {/* Logo - Always visible */}
         <Link to="/">
           <Image
             src="/images/mrc-logo.jpg"
@@ -168,53 +169,53 @@ const Navbar: React.FC = () => {
         <Flex align="center" gap={4}>
           {/* Desktop Navigation */}
           {!isMobile && (
-            <Stack direction="row" spacing={6} mr={4}>
-              {menuItems.map((item, index) => (
-                <Box
-                  key={index}
-                  onClick={() => {
-                    if (item.path) {
-                      navigate(item.path);
-                    }
-                  }}
-                  cursor="pointer"
-                  _hover={{ textDecoration: "underline" }}
-                  fontSize="md"
-                  fontWeight="500"
-                >
-                  {item.name}
-                </Box>
-              ))}
-            </Stack>
-          )}
-
-          {/* Auth Section */}
-          {currentUser ? (
-            <Menu>
-              <MenuButton
-                as={Button}
-                rounded="full"
-                variant="link"
-                cursor="pointer"
-                minW={0}
-              >
-                <Avatar
-                  size="sm"
-                  name={userData?.name || "User"}
-                  src={userData?.photoURL || undefined}
-                />
-              </MenuButton>
-              <MenuList bgColor="white">
-                <MenuItem color="gray.800">
-                  <Text>{userData?.name}</Text>
-                </MenuItem>
-                <MenuItem color="gray.800" onClick={handleLogout}>
-                  Logout
-                </MenuItem>
-              </MenuList>
-            </Menu>
-          ) : (
-            <LoginButton />
+            <>
+              <Stack direction="row" spacing={6} mr={4}>
+                {menuItems.map((item, index) => (
+                  <Box
+                    key={index}
+                    onClick={() => {
+                      if (item.path) {
+                        navigate(item.path);
+                      }
+                    }}
+                    cursor="pointer"
+                    _hover={{ textDecoration: "underline" }}
+                    fontSize="md"
+                    fontWeight="500"
+                  >
+                    {item.name}
+                  </Box>
+                ))}
+              </Stack>
+              {currentUser ? (
+                <Menu>
+                  <MenuButton
+                    as={Button}
+                    rounded="full"
+                    variant="link"
+                    cursor="pointer"
+                    minW={0}
+                  >
+                    <Avatar
+                      size="sm"
+                      name={userData?.name || "User"}
+                      src={userData?.photoURL || undefined}
+                    />
+                  </MenuButton>
+                  <MenuList bgColor="white">
+                    <MenuItem color="gray.800">
+                      <Text>{userData?.name}</Text>
+                    </MenuItem>
+                    <MenuItem color="gray.800" onClick={handleLogout}>
+                      Logout
+                    </MenuItem>
+                  </MenuList>
+                </Menu>
+              ) : (
+                <LoginButton />
+              )}
+            </>
           )}
 
           {/* Mobile Menu */}
@@ -242,6 +243,30 @@ const Navbar: React.FC = () => {
                     {item.name}
                   </MenuItem>
                 ))}
+                {currentUser ? (
+                  <>
+                    <MenuItem color="gray.800">
+                      <HStack>
+                        <Avatar
+                          size="xs"
+                          name={userData?.name || "User"}
+                          src={userData?.photoURL || undefined}
+                        />
+                        <Text>{userData?.name}</Text>
+                      </HStack>
+                    </MenuItem>
+                    <MenuItem color="gray.800" onClick={handleLogout}>
+                      Logout
+                    </MenuItem>
+                  </>
+                ) : (
+                  <MenuItem
+                    color="gray.800"
+                    onClick={() => signInWithFacebook()}
+                  >
+                    Login with Facebook
+                  </MenuItem>
+                )}
               </MenuList>
             </Menu>
           )}
