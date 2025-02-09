@@ -1,13 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   getAuth,
-  signInWithPopup,
-  signInWithRedirect,
+  signInWithCredential,
   FacebookAuthProvider,
   signOut,
   onAuthStateChanged,
   User,
-  getRedirectResult,
 } from "firebase/auth";
 import { db } from "../firebase";
 import { ref, set, get } from "firebase/database";
@@ -53,56 +51,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Function to handle saving user data to Firebase
-  const saveUserData = async (user: User, photoURL: string | null) => {
+  const saveUserData = async (user: User) => {
     try {
+      console.log("Saving user data for:", user.uid);
       const userRef = ref(db, `users/${user.uid}`);
       const userData: UserData = {
         uid: user.uid,
         name: user.displayName || "Anonymous User",
         email: user.email,
-        photoURL: photoURL,
+        photoURL: user.photoURL,
         lastLogin: new Date().toISOString(),
       };
       await set(userRef, userData);
       setUserData(userData);
     } catch (error) {
       console.error("Error saving user data:", error);
+      throw error;
     }
   };
 
+  // Handle Facebook OAuth response
+  useEffect(() => {
+    const handleFacebookResponse = async () => {
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = params.get("access_token");
+
+      if (accessToken) {
+        try {
+          console.log("Got Facebook access token, fetching user data");
+
+          // Fetch user data from Facebook
+          const response = await fetch(
+            `https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${accessToken}`
+          );
+          const fbUserData = await response.json();
+          console.log("Facebook user data:", fbUserData);
+
+          // Create auth credential with additional profile data
+          const credential = FacebookAuthProvider.credential(accessToken);
+          const result = await signInWithCredential(auth, credential);
+
+          // Update the user's profile with the high-res photo URL
+          if (result.user && fbUserData.picture?.data?.url) {
+            await saveUserData({
+              ...result.user,
+              photoURL: fbUserData.picture.data.url,
+            });
+          } else {
+            await saveUserData(result.user);
+          }
+
+          console.log("Firebase sign in successful:", result.user.uid);
+
+          // Clean up the URL
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
+        } catch (error) {
+          console.error("Error signing in with credential:", error);
+        }
+      }
+    };
+
+    handleFacebookResponse();
+  }, [auth]);
+
   async function signInWithFacebook() {
     try {
-      if (!process.env.REACT_APP_FACEBOOK_APP_ID) {
-        throw new Error("Facebook App ID is not configured");
+      const FB_APP_ID = process.env.REACT_APP_FACEBOOK_APP_ID;
+      if (!FB_APP_ID) {
+        throw new Error("Facebook App ID not configured");
       }
 
-      const provider = new FacebookAuthProvider();
-      provider.addScope("email");
-      provider.addScope("public_profile");
-      provider.addScope("user_photos");
+      const redirectUri = `${window.location.origin}${window.location.pathname}`;
+      const state = Math.random().toString(36).substring(7);
 
-      const isMobile = isMobileDevice();
+      // Store state for validation
+      sessionStorage.setItem("fbAuthState", state);
 
-      provider.setCustomParameters({
-        display: isMobile ? "touch" : "popup",
-        auth_type: "rerequest",
-        client_id: process.env.REACT_APP_FACEBOOK_APP_ID,
-      });
+      const facebookAuthUrl =
+        `https://www.facebook.com/v12.0/dialog/oauth?` +
+        `client_id=${FB_APP_ID}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&state=${state}` +
+        `&response_type=token` +
+        `&scope=email,public_profile`;
 
-      if (isMobile) {
-        console.log("Using redirect for mobile device");
-        await signInWithRedirect(auth, provider);
-      } else {
-        console.log("Using popup for desktop");
-        const result = await signInWithPopup(auth, provider);
-        const credential = FacebookAuthProvider.credentialFromResult(result);
-        const accessToken = credential?.accessToken;
-        const photoURL = accessToken
-          ? `https://graph.facebook.com/${result.user.providerData[0]?.uid}/picture?type=large&access_token=${accessToken}`
-          : result.user.photoURL;
-
-        await saveUserData(result.user, photoURL);
-      }
+      console.log("Redirecting to Facebook auth URL:", facebookAuthUrl);
+      window.location.href = facebookAuthUrl;
     } catch (error) {
       console.error("Facebook sign in error:", error);
       throw error;
@@ -119,53 +157,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    let unsubscribe: () => void;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("Auth state changed:", user?.uid);
 
-    async function initializeAuth() {
-      try {
-        // First, check for redirect result
-        const result = await getRedirectResult(auth);
-        if (result) {
-          console.log("Got redirect result:", result);
-          const credential = FacebookAuthProvider.credentialFromResult(result);
-          const accessToken = credential?.accessToken;
-          const photoURL = accessToken
-            ? `https://graph.facebook.com/${result.user.providerData[0]?.uid}/picture?type=large&access_token=${accessToken}`
-            : result.user.photoURL;
+      if (user) {
+        // If we have a user, try to fetch or create their data
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
 
-          await saveUserData(result.user, photoURL);
+        if (snapshot.exists()) {
+          setUserData(snapshot.val());
+        } else {
+          await saveUserData(user);
         }
-
-        // Then set up the auth state listener
-        unsubscribe = onAuthStateChanged(auth, async (user) => {
-          console.log("Auth state changed:", user?.uid);
-          setCurrentUser(user);
-
-          if (user) {
-            const userRef = ref(db, `users/${user.uid}`);
-            const snapshot = await get(userRef);
-            if (snapshot.exists()) {
-              setUserData(snapshot.val());
-            }
-          } else {
-            setUserData(null);
-          }
-
-          setLoading(false);
-        });
-      } catch (error) {
-        console.error("Error during auth initialization:", error);
-        setLoading(false);
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+        setUserData(null);
       }
-    }
 
-    initializeAuth();
+      setLoading(false);
+    });
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return unsubscribe;
   }, [auth]);
 
   const value = {
