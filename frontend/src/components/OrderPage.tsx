@@ -24,9 +24,11 @@ import {
   FormControl,
   FormLabel,
   Stack,
+  Center,
 } from "@chakra-ui/react";
-import { FaTrash, FaPlus, FaSignOutAlt } from "react-icons/fa";
+import { FaTrash, FaPlus, FaFacebook } from "react-icons/fa";
 import { db } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
 import {
   ref,
   onValue,
@@ -46,17 +48,15 @@ interface Order {
   foodCategory?: string;
   foodItem?: string;
   specialRequest?: string;
+  userId?: string;
+  userPhotoURL?: string;
 }
 
-interface User {
-  name: string;
-}
-
-const ADMIN_PASSWORD = "mrcoslo"; // Password for clearing orders
+const ADMIN_PASSWORD = "mrcoslo";
 const USER_TTL_MS = 1000 * 60 * 30; // 30 minutes TTL
 
 const OrderPage: React.FC = () => {
-  const [name, setName] = useState("");
+  const { currentUser, userData } = useAuth();
   const [drink, setDrink] = useState("");
   const [notes, setNotes] = useState("");
   const [foodCategory, setFoodCategory] = useState("");
@@ -64,30 +64,19 @@ const OrderPage: React.FC = () => {
   const [specialRequest, setSpecialRequest] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeUsers, setActiveUsers] = useState<string[]>([]);
-  const [user, setUser] = useState<User | null>(null);
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const toast = useToast({
-    position: "top",
-    duration: 3000,
-    isClosable: true,
-    containerStyle: {
-      width: "100%",
-      maxWidth: "md",
-      margin: "0 auto",
-    },
-  });
-  const [clearOrdersPassword, setClearOrdersPassword] = useState("");
   const {
     isOpen: isClearModalOpen,
     onOpen: onClearModalOpen,
     onClose: onClearModalClose,
   } = useDisclosure();
+  const [clearOrdersPassword, setClearOrdersPassword] = useState("");
   const [exportText, setExportText] = useState("");
   const {
     isOpen: isExportModalOpen,
     onOpen: onExportModalOpen,
     onClose: onExportModalClose,
   } = useDisclosure();
+  const toast = useToast();
 
   // Add cleanup function for expired users
   const cleanupExpiredUsers = async () => {
@@ -107,12 +96,7 @@ const OrderPage: React.FC = () => {
 
   // Modify the initial login useEffect
   useEffect(() => {
-    const savedUser = localStorage.getItem("mrcoslo_user");
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      setName(parsedUser.name);
-
+    if (currentUser && userData) {
       // Re-add user to active users and set up disconnect handler
       const activeUsersRef = ref(db, "activeUsers");
       const setupUser = async () => {
@@ -124,23 +108,27 @@ const OrderPage: React.FC = () => {
           const data = snapshot.val();
           const existingUserEntry = data
             ? Object.entries(data).find(
-                ([_, value]: [string, any]) => value.name === parsedUser.name
+                ([_, value]: [string, any]) => value.name === userData.name
               )
             : null;
 
           if (!existingUserEntry) {
             // User not in active list, add them with timestamp
             const newUserRef = await push(activeUsersRef, {
-              name: parsedUser.name,
+              name: userData.name,
               timestamp: Date.now(),
+              photoURL: userData.photoURL,
+              userId: userData.uid,
             });
             onDisconnect(newUserRef).remove();
           } else {
             // Update existing user's timestamp
             const userRef = ref(db, `activeUsers/${existingUserEntry[0]}`);
             await set(userRef, {
-              name: parsedUser.name,
+              name: userData.name,
               timestamp: Date.now(),
+              photoURL: userData.photoURL,
+              userId: userData.uid,
             });
             onDisconnect(userRef).remove();
           }
@@ -154,26 +142,8 @@ const OrderPage: React.FC = () => {
       // Set up periodic cleanup
       const cleanup = setInterval(cleanupExpiredUsers, USER_TTL_MS / 2);
       return () => clearInterval(cleanup);
-    } else {
-      onOpen();
     }
-  }, [onOpen]);
-
-  // Modify the active users subscription
-  useEffect(() => {
-    const activeUsersRef = ref(db, "activeUsers");
-
-    const unsubscribe = onValue(activeUsersRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setActiveUsers(Object.values(data).map((user: any) => user.name));
-      } else {
-        setActiveUsers([]);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
+  }, [currentUser, userData]);
 
   // Replace the local orders state with Firebase sync
   useEffect(() => {
@@ -234,100 +204,21 @@ const OrderPage: React.FC = () => {
     Snacks: ["Chicken Wings", "Nachos", "Mozzarella Sticks", "Garlic Bread"],
   };
 
-  // Modify the handleLogin
-  const handleLogin = async () => {
-    if (!name.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter your name",
-        status: "error",
-        variant: "solid",
-      });
-      return;
-    }
-
-    const trimmedName = name.trim();
-    const nameExists = activeUsers.some(
-      (userName: string) => userName.toLowerCase() === trimmedName.toLowerCase()
-    );
-
-    if (nameExists) {
-      toast({
-        title: "Error",
-        description:
-          "This name is already in use. Please use a different name or add a number to your name.",
-        status: "error",
-        variant: "solid",
-      });
-      return;
-    }
-
-    try {
-      const activeUsersRef = ref(db, "activeUsers");
-      const newUserRef = await push(activeUsersRef, {
-        name: trimmedName,
-        timestamp: Date.now(),
-      });
-      onDisconnect(newUserRef).remove();
-
-      const newUser = { name: trimmedName };
-      localStorage.setItem("mrcoslo_user", JSON.stringify(newUser));
-      setUser(newUser);
-      onClose();
-
-      toast({
-        title: "Welcome!",
-        description: "You can now add your orders",
-        status: "success",
-        variant: "solid",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to register name. Please try again.",
-        status: "error",
-        variant: "solid",
-      });
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      // Remove user from active users list
-      const activeUsersRef = ref(db, "activeUsers");
-      const snapshot = await get(activeUsersRef);
-      const data = snapshot.val();
-
-      if (data) {
-        // Find and remove the user's name using the new data structure
-        const userEntry = Object.entries(data).find(
-          ([_, value]: [string, any]) => value.name === user?.name
-        );
-        if (userEntry) {
-          await remove(ref(db, `activeUsers/${userEntry[0]}`));
-        }
-      }
-
-      localStorage.removeItem("mrcoslo_user");
-      setUser(null);
-      setName("");
-      onOpen();
-    } catch (error) {
-      console.error("Logout error:", error);
-      // Still proceed with local logout even if Firebase fails
-      localStorage.removeItem("mrcoslo_user");
-      setUser(null);
-      setName("");
-      onOpen();
-    }
-  };
-
   const handleSubmit = async () => {
-    if (!name || (!drink && !foodItem && !notes)) {
+    if (!currentUser || !userData) {
       toast({
         title: "Error",
-        description:
-          "Please fill in your name and add either a drink or food order",
+        description: "Please log in with Facebook first",
+        status: "error",
+        variant: "solid",
+      });
+      return;
+    }
+
+    if (!drink && !foodItem && !notes) {
+      toast({
+        title: "Error",
+        description: "Please add either a drink or food order",
         status: "error",
         variant: "solid",
       });
@@ -335,7 +226,7 @@ const OrderPage: React.FC = () => {
     }
 
     const existingOrder = orders.find(
-      (order) => order.name.toLowerCase() === name.toLowerCase()
+      (order) => order.userId === currentUser.uid
     );
 
     if (existingOrder) {
@@ -355,7 +246,9 @@ const OrderPage: React.FC = () => {
 
       // Create order object
       const orderData = {
-        name,
+        name: userData.name,
+        userId: currentUser.uid,
+        userPhotoURL: userData.photoURL,
         drink: drink || null,
         foodCategory: foodItem ? foodCategory : null,
         foodItem: foodItem || null,
@@ -369,7 +262,6 @@ const OrderPage: React.FC = () => {
         Object.entries(orderData).filter(([_, value]) => value !== null)
       );
 
-      console.log("Sending order data:", newOrder);
       await push(ordersRef, newOrder);
 
       // Clear form
@@ -399,9 +291,9 @@ const OrderPage: React.FC = () => {
     }
   };
 
-  const removeOrder = async (id: string, orderName: string) => {
+  const removeOrder = async (id: string, orderId: string) => {
     // Check if the user is trying to remove their own order
-    if (orderName.toLowerCase() !== user?.name.toLowerCase()) {
+    if (!currentUser || orderId !== currentUser.uid) {
       toast({
         title: "Error",
         description: "You can only remove your own orders",
@@ -533,55 +425,27 @@ const OrderPage: React.FC = () => {
     });
   };
 
+  if (!currentUser || !userData) {
+    return (
+      <Container maxW="container.xl" py={10}>
+        <Center flexDirection="column" gap={4}>
+          <Heading size="lg">Please Log In</Heading>
+          <Text>You need to be logged in with Facebook to place orders.</Text>
+          <Button
+            as="a"
+            href="/"
+            colorScheme="facebook"
+            leftIcon={<FaFacebook />}
+          >
+            Return to Home & Log In
+          </Button>
+        </Center>
+      </Container>
+    );
+  }
+
   return (
     <Container maxW="container.xl" py={10}>
-      {/* Login Modal */}
-      <Modal
-        isOpen={isOpen || !user}
-        onClose={onClose}
-        closeOnOverlayClick={false}
-        closeOnEsc={false}
-      >
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Enter Your Name</ModalHeader>
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl>
-                <FormLabel>Your Name</FormLabel>
-                <Input
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </FormControl>
-              <Text fontSize="sm" color="gray.600">
-                Note: Names must be unique. If someone is already using your
-                name, try adding a number (e.g., John2).
-              </Text>
-              <Box
-                p={4}
-                bg="red.50"
-                borderRadius="md"
-                borderWidth="1px"
-                borderColor="red.200"
-              >
-                <Text fontSize="sm" color="red.600" fontWeight="bold">
-                  ⚠️ Warning: This is a community tool. Any misuse or trolling
-                  will be taken personally, and the MRC Oslo captains will find
-                  you during the next run. Choose wisely! 🏃‍♂️💪
-                </Text>
-              </Box>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button colorScheme="blue" onClick={handleLogin}>
-              Continue
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
       {/* Clear Orders Confirmation Modal */}
       <Modal isOpen={isClearModalOpen} onClose={onClearModalClose}>
         <ModalOverlay />
@@ -657,29 +521,13 @@ const OrderPage: React.FC = () => {
             👥 {activeUsers.length}{" "}
             {activeUsers.length === 1 ? "person" : "people"} currently online
           </Text>
-          <Button
-            position={{ base: "relative", md: "absolute" }}
-            right="0"
-            top="0"
-            colorScheme="gray"
-            size="sm"
-            leftIcon={<FaSignOutAlt />}
-            onClick={handleLogout}
-            mt={{ base: 4, md: 0 }}
-            w={{ base: "full", md: "auto" }}
-          >
-            Logout
-          </Button>
         </Box>
 
         <Box bg="white" p={{ base: 4, md: 6 }} borderRadius="lg" boxShadow="md">
           <VStack spacing={4}>
-            <Input
-              placeholder="Your Name"
-              value={name}
-              isDisabled={true}
-              _disabled={{ opacity: 0.8, cursor: "not-allowed" }}
-            />
+            <Text fontSize="lg" fontWeight="bold">
+              Ordering as: {userData.name}
+            </Text>
 
             <Divider />
 
@@ -847,7 +695,19 @@ const OrderPage: React.FC = () => {
                         spacing={2}
                         w="full"
                       >
-                        <Text fontWeight="bold">{order.name}</Text>
+                        <HStack>
+                          {order.userPhotoURL && (
+                            <Box
+                              as="img"
+                              src={order.userPhotoURL}
+                              alt={order.name}
+                              width="24px"
+                              height="24px"
+                              borderRadius="full"
+                            />
+                          )}
+                          <Text fontWeight="bold">{order.name}</Text>
+                        </HStack>
                         {order.drink && (
                           <Badge colorScheme="blue">{order.drink}</Badge>
                         )}
@@ -872,14 +732,16 @@ const OrderPage: React.FC = () => {
                         </Text>
                       )}
                     </VStack>
-                    {user?.name.toLowerCase() === order.name.toLowerCase() && (
+                    {currentUser && order.userId === currentUser.uid && (
                       <IconButton
                         aria-label="Remove order"
                         icon={<FaTrash />}
                         size="sm"
                         colorScheme="red"
                         variant="ghost"
-                        onClick={() => removeOrder(order.id, order.name)}
+                        onClick={() =>
+                          removeOrder(order.id, order.userId || "")
+                        }
                         alignSelf={{ base: "flex-end", md: "flex-start" }}
                         mt={{ base: 2, md: 0 }}
                       />

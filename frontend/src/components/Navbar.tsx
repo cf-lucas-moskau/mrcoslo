@@ -10,10 +10,15 @@ import {
   IconButton,
   Stack,
   useBreakpointValue,
+  Avatar,
+  Button,
+  Text,
 } from "@chakra-ui/react";
 import { HamburgerIcon } from "@chakra-ui/icons";
 import { motion, useAnimation } from "framer-motion";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import LoginButton from "./LoginButton";
 
 const SCROLL_UP = "up";
 const SCROLL_DOWN = "down";
@@ -30,6 +35,7 @@ const Navbar: React.FC = () => {
   const [scrollDirection, setScrollDirection] = useState(SCROLL_UP);
   const [prevScrollY, setPrevScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const { currentUser, userData, logout } = useAuth();
 
   const handleNavigation = (sectionId: string) => {
     if (window.location.pathname === "/") {
@@ -109,10 +115,20 @@ const Navbar: React.FC = () => {
   }, []);
 
   const menuItems: MenuItem[] = [
-    { name: "Regular Runs", id: "regular-runs" },
-    { name: "Captains", id: "captains" },
+    { name: "Home", path: "/" },
     { name: "Races", path: "/races" },
+    { name: "Photos", path: "/photos" },
+    { name: "Order", path: "/order" },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -132,80 +148,104 @@ const Navbar: React.FC = () => {
         as="nav"
         align="center"
         justify="space-between"
-        wrap="wrap"
         padding="1rem"
         bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)"
         color="white"
         boxShadow="0 2px 10px rgba(0,0,0,0.1)"
         height="80px"
       >
-        <Flex align="center" mr={5} height="100%">
-          <RouterLink to="/">
-            <Image
-              src="/images/mrc-logo.jpg"
-              alt="Logo"
-              position="absolute"
-              top="50%"
-              left="50%"
-              transform="translate(-50%, -50%)"
-              height="120%"
-              cursor="pointer"
-            />
-          </RouterLink>
-        </Flex>
+        {/* Logo */}
+        <Link to="/">
+          <Image
+            src="/images/mrc-logo.jpg"
+            alt="Logo"
+            height="60px"
+            objectFit="contain"
+          />
+        </Link>
 
-        {isMobile ? (
-          <Menu>
-            <MenuButton
-              as={IconButton}
-              icon={<HamburgerIcon />}
-              variant="outline"
-              aria-label="Options"
-              color={"white"}
-            />
-            <MenuList
-              bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)"
-              color="white"
-            >
+        {/* Navigation and Auth */}
+        <Flex align="center" gap={4}>
+          {/* Desktop Navigation */}
+          {!isMobile && (
+            <Stack direction="row" spacing={6} mr={4}>
               {menuItems.map((item, index) => (
-                <MenuItem
+                <Box
                   key={index}
                   onClick={() => {
                     if (item.path) {
                       navigate(item.path);
-                    } else if (item.id) {
-                      handleNavigation(item.id);
                     }
                   }}
-                  bgGradient="linear(to-r, #B9DDB9, #D5B2D3, #204081)"
-                  color="white"
                   cursor="pointer"
+                  _hover={{ textDecoration: "underline" }}
+                  fontSize="md"
+                  fontWeight="500"
                 >
                   {item.name}
-                </MenuItem>
+                </Box>
               ))}
-            </MenuList>
-          </Menu>
-        ) : (
-          <Stack direction="row" spacing={4}>
-            {menuItems.map((item, index) => (
-              <Box
-                key={index}
-                onClick={() => {
-                  if (item.path) {
-                    navigate(item.path);
-                  } else if (item.id) {
-                    handleNavigation(item.id);
-                  }
-                }}
+            </Stack>
+          )}
+
+          {/* Auth Section */}
+          {currentUser ? (
+            <Menu>
+              <MenuButton
+                as={Button}
+                rounded="full"
+                variant="link"
                 cursor="pointer"
-                _hover={{ textDecoration: "none" }}
+                minW={0}
               >
-                {item.name}
-              </Box>
-            ))}
-          </Stack>
-        )}
+                <Avatar
+                  size="sm"
+                  name={userData?.name || "User"}
+                  src={userData?.photoURL || undefined}
+                />
+              </MenuButton>
+              <MenuList bgColor="white">
+                <MenuItem color="gray.800">
+                  <Text>{userData?.name}</Text>
+                </MenuItem>
+                <MenuItem color="gray.800" onClick={handleLogout}>
+                  Logout
+                </MenuItem>
+              </MenuList>
+            </Menu>
+          ) : (
+            <LoginButton />
+          )}
+
+          {/* Mobile Menu */}
+          {isMobile && (
+            <Menu>
+              <MenuButton
+                as={IconButton}
+                icon={<HamburgerIcon />}
+                variant="outline"
+                aria-label="Options"
+                color="white"
+                ml={2}
+              />
+              <MenuList bgColor="white">
+                {menuItems.map((item, index) => (
+                  <MenuItem
+                    key={index}
+                    onClick={() => {
+                      if (item.path) {
+                        navigate(item.path);
+                      }
+                    }}
+                    color="gray.800"
+                  >
+                    {item.name}
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Menu>
+          )}
+        </Flex>
       </Flex>
     </motion.div>
   );

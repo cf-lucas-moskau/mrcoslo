@@ -160,12 +160,27 @@ export async function fetchRaces(): Promise<{
       throw new Error("Invalid data format received from Google Sheets");
     }
 
+    // Get existing race data to preserve comments and excited fields
+    const existingRacesSnapshot = await get(ref(db, "raceCache/races"));
+    const existingRaces = existingRacesSnapshot.val() || {};
+
+    // Merge new race data with existing data
+    const mergedRaces = races.map((race, index) => {
+      const existingRace = existingRaces[index];
+      return {
+        ...race,
+        // Preserve existing comments and excited data if they exist
+        comments: existingRace?.comments || [],
+        excited: existingRace?.excited || {},
+      };
+    });
+
     const newCacheData: CacheData = {
-      races,
+      races: mergedRaces,
       lastUpdated: now,
     };
 
-    console.log("Updating cache with new data");
+    console.log("Updating cache with merged data");
     await set(cacheRef, newCacheData);
     return newCacheData;
   } catch (error) {

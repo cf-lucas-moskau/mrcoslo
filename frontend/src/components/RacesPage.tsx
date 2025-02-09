@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Box,
   Container,
@@ -15,6 +15,18 @@ import {
   Spinner,
   Alert,
   AlertIcon,
+  Input,
+  Select,
+  InputGroup,
+  InputLeftElement,
+  Wrap,
+  WrapItem,
+  IconButton,
+  Button,
+  Avatar,
+  Textarea,
+  useToast,
+  Divider,
 } from "@chakra-ui/react";
 import {
   FaMapMarkerAlt,
@@ -22,11 +34,27 @@ import {
   FaRunning,
   FaUsers,
   FaExternalLinkAlt,
+  FaSearch,
+  FaRegStar,
+  FaStar,
+  FaComment,
 } from "react-icons/fa";
 import { fetchRaces } from "../utils/googleSheets";
 import { format, formatDistanceToNow } from "date-fns";
+import { useAuth } from "../contexts/AuthContext";
+import { ref, update, push, set } from "firebase/database";
+import { db } from "../firebase";
 
-interface Race {
+interface RaceComment {
+  id: string;
+  text: string;
+  userId: string;
+  userName: string;
+  userPhotoURL?: string;
+  timestamp: number;
+}
+
+interface BaseRaceData {
   month: string;
   country: string;
   name: string;
@@ -37,42 +65,156 @@ interface Race {
   runners: string[];
 }
 
+interface FirebaseRaceData extends BaseRaceData {
+  comments?: { [key: string]: Omit<RaceComment, "id"> };
+  excited?: { [key: string]: { value: boolean } };
+}
+
+interface Race extends BaseRaceData {
+  id: string;
+  comments: RaceComment[];
+  excited: { [key: string]: { value: boolean } };
+}
+
+interface Filters {
+  search: string;
+  month: string;
+  country: string;
+  type: string;
+}
+
+interface CommentInputProps {
+  onSubmit: (text: string) => void;
+  isDisabled?: boolean;
+}
+
+const CommentInput = ({ onSubmit, isDisabled }: CommentInputProps) => {
+  const [text, setText] = useState("");
+
+  const handleSubmit = () => {
+    if (text.trim()) {
+      onSubmit(text);
+      setText("");
+    }
+  };
+
+  return (
+    <HStack>
+      <Input
+        placeholder="Add a comment..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyPress={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+          }
+        }}
+      />
+      <Button
+        colorScheme="blue"
+        onClick={handleSubmit}
+        isDisabled={isDisabled || !text.trim()}
+      >
+        Post
+      </Button>
+    </HStack>
+  );
+};
+
 const RacesPage: React.FC = () => {
+  const { currentUser, userData } = useAuth();
   const [races, setRaces] = useState<Race[]>([]);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>({
+    search: "",
+    month: "",
+    country: "",
+    type: "",
+  });
+  const [commentText, setCommentText] = useState("");
+  const [commentingRaceId, setCommentingRaceId] = useState<string | null>(null);
+  const toast = useToast();
+
+  const monthOrder: { [key: string]: number } = {
+    January: 1,
+    February: 2,
+    March: 3,
+    April: 4,
+    May: 5,
+    June: 6,
+    July: 7,
+    August: 8,
+    September: 9,
+    October: 10,
+    November: 11,
+    December: 12,
+  };
+
+  const normalizeMonth = (month: string): string => {
+    // First trim and convert to title case
+    const normalized = month
+      .trim()
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    // Ensure it's a valid month name
+    return monthOrder[normalized] ? normalized : month;
+  };
 
   useEffect(() => {
-    const loadRaces = async () => {
+    const fetchData = async () => {
       try {
-        console.log("Starting to load races");
-        const data = await fetchRaces();
-
-        if (!data || !Array.isArray(data.races)) {
-          console.error("Invalid data format:", data);
-          throw new Error("Invalid data format received");
+        // Check if we have data and if it's recent enough
+        if (races.length > 0 && lastUpdated) {
+          const now = Date.now();
+          if (now - lastUpdated < 10 * 60 * 60 * 1000) {
+            // 10 hours in milliseconds
+            console.log("Using cached data from memory");
+            return;
+          }
         }
 
-        console.log("Received races:", data.races.length);
-        setRaces(data.races);
-        setLastUpdated(data.lastUpdated);
-        setError(null);
-      } catch (err) {
-        console.error("Error in loadRaces:", err);
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Failed to load races. Please try again later.";
-        setError(errorMessage);
-        setRaces([]);
+        setIsLoading(true);
+        const response = await fetchRaces();
+
+        // Ensure we have an array of races
+        const racesData: FirebaseRaceData[] = Array.isArray(response)
+          ? response
+          : Array.isArray(response.races)
+          ? response.races
+          : [];
+
+        // Transform FirebaseRaceData to Race
+        const racesWithIds: Race[] = racesData.map(
+          (race: FirebaseRaceData, index: number) => ({
+            ...race,
+            id: index.toString(),
+            // Convert comments from object to array if they exist
+            comments: race.comments
+              ? Object.entries(race.comments).map(([commentId, comment]) => ({
+                  ...comment,
+                  id: commentId,
+                }))
+              : [],
+            // Ensure excited is initialized
+            excited: race.excited || {},
+          })
+        );
+
+        setRaces(racesWithIds);
+        setLastUpdated(response.lastUpdated || Date.now());
+      } catch (error) {
+        console.error("Error fetching races:", error);
+        setError("Failed to fetch races data");
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadRaces();
-  }, []);
+    fetchData();
+  }, [races.length, lastUpdated]);
 
   const getCountryFlag = (countryCode: string) => {
     try {
@@ -86,6 +228,259 @@ const RacesPage: React.FC = () => {
       return "🏁"; // Fallback flag
     }
   };
+
+  // Extract unique values for filters
+  const filterOptions = useMemo(() => {
+    const months = new Set<string>();
+    const countries = new Set<string>();
+    const types = new Set<string>();
+
+    races.forEach((race) => {
+      if (race.month) months.add(normalizeMonth(race.month));
+      if (race.country) countries.add(race.country);
+      if (race.type) types.add(race.type);
+    });
+
+    return {
+      months: Array.from(months).sort(
+        (a, b) => (monthOrder[a] || 0) - (monthOrder[b] || 0)
+      ),
+      countries: Array.from(countries).sort(),
+      types: Array.from(types).sort(),
+    };
+  }, [races]);
+
+  // Filter races based on current filters
+  const filteredRaces = useMemo(() => {
+    return races.filter((race) => {
+      const matchesSearch =
+        !filters.search ||
+        race.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        race.distances.toLowerCase().includes(filters.search.toLowerCase());
+      const matchesMonth =
+        !filters.month || normalizeMonth(race.month) === filters.month;
+      const matchesCountry =
+        !filters.country || race.country === filters.country;
+      const matchesType = !filters.type || race.type === filters.type;
+
+      return matchesSearch && matchesMonth && matchesCountry && matchesType;
+    });
+  }, [races, filters]);
+
+  const handleFilterChange = (filterName: keyof Filters, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [filterName]: value,
+    }));
+  };
+
+  const handleExcited = async (raceId: string, race: Race) => {
+    if (!currentUser) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to mark races as exciting",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    try {
+      const excitedRef = ref(
+        db,
+        `raceCache/races/${raceId}/excited/${currentUser.uid}`
+      );
+      const isCurrentlyExcited = race.excited?.[currentUser.uid]?.value;
+
+      if (isCurrentlyExcited) {
+        // Remove excitement by removing the entire node
+        await set(excitedRef, null);
+
+        // Update local state
+        setRaces((prevRaces) =>
+          prevRaces.map((r) => {
+            if (r.id === raceId) {
+              const newExcited = { ...r.excited };
+              delete newExcited[currentUser.uid];
+              return {
+                ...r,
+                excited: newExcited,
+              };
+            }
+            return r;
+          })
+        );
+      } else {
+        // Add excitement with a value property
+        await set(excitedRef, { value: true });
+
+        // Update local state
+        setRaces((prevRaces) =>
+          prevRaces.map((r) => {
+            if (r.id === raceId) {
+              return {
+                ...r,
+                excited: {
+                  ...r.excited,
+                  [currentUser.uid]: { value: true },
+                },
+              };
+            }
+            return r;
+          })
+        );
+      }
+
+      toast({
+        title: "Success",
+        description: isCurrentlyExcited
+          ? "Race unmarked as exciting"
+          : "Race marked as exciting",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error("Error updating excitement:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update excitement status",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleComment = async (raceId: string, commentText: string) => {
+    if (!currentUser || !userData || !commentText.trim()) return;
+
+    try {
+      const commentRef = ref(db, `raceCache/races/${raceId}/comments`);
+      const newComment: Omit<RaceComment, "id"> = {
+        text: commentText.trim(),
+        userId: currentUser.uid,
+        userName: userData.name,
+        userPhotoURL: userData.photoURL || undefined,
+        timestamp: Date.now(),
+      };
+
+      const newCommentRef = await push(commentRef, newComment);
+
+      // Update local state
+      setRaces((prevRaces) =>
+        prevRaces.map((race) => {
+          if (race.id === raceId) {
+            return {
+              ...race,
+              comments: [
+                ...race.comments,
+                { ...newComment, id: newCommentRef.key! },
+              ],
+            };
+          }
+          return race;
+        })
+      );
+
+      toast({
+        title: "Success",
+        description: "Comment added successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const renderFilters = () => (
+    <VStack spacing={4} w="100%" mb={8}>
+      <InputGroup>
+        <InputLeftElement pointerEvents="none">
+          <Icon as={FaSearch} color="gray.400" />
+        </InputLeftElement>
+        <Input
+          placeholder="Search races..."
+          value={filters.search}
+          onChange={(e) => handleFilterChange("search", e.target.value)}
+        />
+      </InputGroup>
+
+      <Wrap spacing={4}>
+        <WrapItem>
+          <Select
+            placeholder="All Months"
+            value={filters.month}
+            onChange={(e) => handleFilterChange("month", e.target.value)}
+            minW="150px"
+          >
+            {filterOptions.months.map((month) => (
+              <option key={month} value={month}>
+                {month}
+              </option>
+            ))}
+          </Select>
+        </WrapItem>
+
+        <WrapItem>
+          <Select
+            placeholder="All Countries"
+            value={filters.country}
+            onChange={(e) => handleFilterChange("country", e.target.value)}
+            minW="150px"
+          >
+            {filterOptions.countries.map((country) => (
+              <option key={country} value={country}>
+                {country} {getCountryFlag(country)}
+              </option>
+            ))}
+          </Select>
+        </WrapItem>
+
+        <WrapItem>
+          <Select
+            placeholder="All Types"
+            value={filters.type}
+            onChange={(e) => handleFilterChange("type", e.target.value)}
+            minW="150px"
+          >
+            {filterOptions.types.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </Select>
+        </WrapItem>
+      </Wrap>
+
+      {Object.values(filters).some(Boolean) && (
+        <HStack spacing={2}>
+          <Text fontSize="sm" color="gray.600">
+            Showing {filteredRaces.length} of {races.length} races
+          </Text>
+          <Text
+            fontSize="sm"
+            color="blue.500"
+            cursor="pointer"
+            onClick={() =>
+              setFilters({ search: "", month: "", country: "", type: "" })
+            }
+          >
+            Clear filters
+          </Text>
+        </HStack>
+      )}
+    </VStack>
+  );
 
   const renderRaces = (races: Race[]) => {
     if (!Array.isArray(races)) {
@@ -155,6 +550,44 @@ const RacesPage: React.FC = () => {
                     </HStack>
                   </Link>
                 )}
+
+                <HStack spacing={4}>
+                  <HStack>
+                    <IconButton
+                      aria-label="Mark as exciting"
+                      icon={
+                        race.excited?.[currentUser?.uid || ""] ? (
+                          <FaStar />
+                        ) : (
+                          <FaRegStar />
+                        )
+                      }
+                      colorScheme={
+                        race.excited?.[currentUser?.uid || ""]
+                          ? "yellow"
+                          : "gray"
+                      }
+                      variant="ghost"
+                      onClick={() => handleExcited(race.id, race)}
+                    />
+                    <Text fontSize="sm">
+                      {Object.keys(race.excited || {}).length}
+                    </Text>
+                  </HStack>
+                  <HStack>
+                    <IconButton
+                      aria-label="Show comments"
+                      icon={<FaComment />}
+                      variant="ghost"
+                      onClick={() =>
+                        setCommentingRaceId(
+                          commentingRaceId === race.id ? null : race.id
+                        )
+                      }
+                    />
+                    <Text fontSize="sm">{race.comments?.length || 0}</Text>
+                  </HStack>
+                </HStack>
               </VStack>
             </Box>
 
@@ -184,6 +617,44 @@ const RacesPage: React.FC = () => {
               </Flex>
             </Box>
           </SimpleGrid>
+
+          {/* Comments Section */}
+          {commentingRaceId === race.id && (
+            <Box mt={4}>
+              <Divider mb={4} />
+              <VStack align="stretch" spacing={4}>
+                {race.comments?.map((comment) => (
+                  <HStack key={comment.id} spacing={3} alignItems="flex-start">
+                    <Avatar
+                      size="xs"
+                      src={comment.userPhotoURL}
+                      name={comment.userName}
+                    />
+                    <Box flex={1}>
+                      <HStack spacing={2} mb={1}>
+                        <Text fontSize="sm" fontWeight="bold">
+                          {comment.userName}
+                        </Text>
+                        <Text fontSize="xs" color="gray.500">
+                          {formatDistanceToNow(comment.timestamp, {
+                            addSuffix: true,
+                          })}
+                        </Text>
+                      </HStack>
+                      <Text fontSize="sm">{comment.text}</Text>
+                    </Box>
+                  </HStack>
+                ))}
+
+                {currentUser && (
+                  <CommentInput
+                    onSubmit={(text) => handleComment(race.id, text)}
+                    isDisabled={!currentUser}
+                  />
+                )}
+              </VStack>
+            </Box>
+          )}
         </Box>
       );
 
@@ -245,12 +716,16 @@ const RacesPage: React.FC = () => {
           )}
         </Box>
 
-        {Array.isArray(races) && races.length > 0 ? (
-          renderRaces(races)
+        {renderFilters()}
+
+        {Array.isArray(filteredRaces) && filteredRaces.length > 0 ? (
+          renderRaces(filteredRaces)
         ) : (
           <Box textAlign="center" py={10}>
             <Text fontSize="lg" color="gray.600">
-              No races found. Check back later!
+              {races.length > 0
+                ? "No races match your filters. Try adjusting them."
+                : "No races found. Check back later!"}
             </Text>
           </Box>
         )}

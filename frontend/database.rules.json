@@ -1,0 +1,59 @@
+{
+  "rules": {
+    "photos": {
+      ".read": true,
+      ".write": "auth != null",
+      ".indexOn": ["userId"],
+      "$photoId": {
+        ".validate": "newData.hasChildren(['imageUrl', 'caption', 'uploadedBy', 'userId', 'timestamp'])",
+        "imageUrl": { ".validate": "newData.isString()" },
+        "caption": { ".validate": "newData.isString()" },
+        "uploadedBy": { ".validate": "newData.isString()" },
+        "userId": { ".validate": "newData.isString()" },
+        "timestamp": { ".validate": "newData.isNumber()" },
+        "likes": { ".validate": "true" },
+        "comments": { ".validate": "true" },
+        "bundleId": {
+          ".validate": "newData.isString() || newData.val() == null"
+        }
+      }
+    },
+    "raceCache": {
+      ".read": true,
+      ".write": "auth != null",
+      "races": {
+        "$raceId": {
+          "comments": {
+            ".write": "auth != null",
+            "$commentId": {
+              ".validate": "newData.hasChildren(['text', 'userId', 'userName', 'timestamp'])",
+              "text": { ".validate": "newData.isString()" },
+              "userId": { ".validate": "newData.isString()" },
+              "userName": { ".validate": "newData.isString()" },
+              "timestamp": { ".validate": "newData.isNumber()" }
+            }
+          },
+          "excited": {
+            ".write": "auth != null",
+            "$userId": {
+              ".validate": "newData.hasChildren(['value']) || newData.val() == null",
+              "value": { ".validate": "newData.isBoolean()" }
+            }
+          }
+        }
+      }
+    },
+    "users": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "feedback": {
+      ".read": "auth != null",
+      ".write": true
+    },
+    "activeUsers": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
