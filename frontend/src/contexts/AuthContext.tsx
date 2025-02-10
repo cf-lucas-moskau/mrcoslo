@@ -6,6 +6,7 @@ import {
   signOut,
   onAuthStateChanged,
   User,
+  updateProfile,
 } from "firebase/auth";
 import { db } from "../firebase";
 import { ref, set, get } from "firebase/database";
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Function to handle saving user data to Firebase
-  const saveUserData = async (user: User, fbPhotoURL?: string) => {
+  const saveUserData = async (user: User) => {
     try {
       console.log("Saving user data for:", user.uid);
       const userRef = ref(db, `users/${user.uid}`);
@@ -59,15 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: user.uid,
         name: user.displayName || "Anonymous User",
         email: user.email,
-        photoURL: fbPhotoURL || user.photoURL,
+        photoURL: user.photoURL,
         lastLogin: new Date().toISOString(),
       };
       await set(userRef, userData);
       setUserData(userData);
-      setCurrentUser({
-        ...user,
-        photoURL: fbPhotoURL || user.photoURL,
-      } as User);
     } catch (error) {
       console.error("Error saving user data:", error);
       throw error;
@@ -95,11 +92,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const credential = FacebookAuthProvider.credential(accessToken);
           const result = await signInWithCredential(auth, credential);
 
+          // Get the high-res photo URL
+          const photoURL =
+            fbUserData.picture?.data?.url || result.user.photoURL;
+
           // Update the user's profile with the high-res photo URL
-          if (result.user && fbUserData.picture?.data?.url) {
-            await saveUserData(result.user, fbUserData.picture.data.url);
-          } else {
-            await saveUserData(result.user);
+          if (result.user) {
+            // First update the Firebase Auth user profile
+            await updateProfile(result.user, {
+              displayName: fbUserData.name || result.user.displayName,
+              photoURL: photoURL,
+            });
+
+            // Then update our custom user data
+            const customUserData = {
+              ...result.user,
+              displayName: fbUserData.name || result.user.displayName,
+              photoURL: photoURL,
+            };
+
+            await saveUserData(customUserData);
+
+            // Update the current user state
+            setCurrentUser({
+              ...result.user,
+              photoURL: photoURL,
+            });
           }
 
           console.log("Firebase sign in successful:", result.user.uid);
