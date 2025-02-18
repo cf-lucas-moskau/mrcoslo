@@ -88,14 +88,35 @@
         "@context": "http://schema.org",
         "@type": "SportsClub",
         "name": "Mikkeller Running Club Oslo",
-        "description": "International running club in Oslo organizing weekly social runs for all levels, followed by craft beer tasting.",
+        "alternateName": ["MRC Oslo", "Running Club Oslo"],
+        "description": "International running club in Oslo organizing weekly social runs for all levels, followed by craft beer tasting. Join our diverse community of runners for social runs every Monday, Thursday, and Sunday.",
         "image": "https://running-oslo.com/og-image.jpg",
         "url": "https://running-oslo.com",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "Oslo",
-          "addressCountry": "NO"
-        },
+        "sameAs": [
+          "https://www.facebook.com/mrcosl",
+          "https://www.instagram.com/mrc.oslo"
+        ],
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": "Monday",
+            "opens": "18:00",
+            "closes": "19:30"
+          },
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": "Thursday",
+            "opens": "19:30",
+            "closes": "21:00"
+          },
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": "Sunday",
+            "opens": "11:00",
+            "closes": "13:00"
+          }
+        ],
+        "keywords": "running club oslo, international running club, oslo runners, mikkeller running club, english speaking running club oslo, social running oslo, beer runners oslo, running groups oslo, beginner friendly running oslo",
         "location": {
           "@type": "Place",
           "name": "Henry & Sally's",
@@ -104,19 +125,98 @@
             "streetAddress": "Møllergata 23",
             "addressLocality": "Oslo",
             "postalCode": "0179",
-            "addressCountry": "NO"
+            "addressCountry": "NO",
+            "addressRegion": "Oslo"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": "59.913868",
+            "longitude": "10.752245"
           }
         },
-        "event": {
-          "@type": "SportsEvent",
-          "name": "Weekly Social Runs",
-          "description": "Regular group runs for all levels, from beginners to experienced runners",
-          "startDate": "2024-01-01",
-          "endDate": "2024-12-31",
-          "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-          "eventStatus": "https://schema.org/EventScheduled",
-          "sport": "Running"
-        }
+        "events": [
+          {
+            "@type": "SportsEvent",
+            "name": "Monday Social Run",
+            "description": "Beginner's Joy Run - 3km, 5km or 7km social run. Perfect for all levels, with multiple pace groups and distances to choose from. End the run with social gathering and optional beers at Henry & Sally's.",
+            "startDate": "2024-01-01T18:00",
+            "endDate": "2024-12-31T19:30",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "isAccessibleForFree": true,
+            "maximumAttendeeCapacity": 100,
+            "organizer": {
+              "@type": "Organization",
+              "name": "Mikkeller Running Club Oslo"
+            },
+            "location": {
+              "@type": "Place",
+              "name": "Henry & Sally's",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "Møllergata 23",
+                "addressLocality": "Oslo",
+                "postalCode": "0179",
+                "addressCountry": "NO",
+                "addressRegion": "Oslo"
+              }
+            }
+          },
+          {
+            "@type": "SportsEvent",
+            "name": "Thursday Track Session",
+            "description": "Track intervals and core training at the historic Bislett Stadium. Two sessions available: short intervals (up to 400m) and long intervals (400m+). Suitable for all levels wanting to improve their speed and form.",
+            "startDate": "2024-01-01T19:30",
+            "endDate": "2024-12-31T21:00",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "isAccessibleForFree": true,
+            "maximumAttendeeCapacity": 50,
+            "organizer": {
+              "@type": "Organization",
+              "name": "Mikkeller Running Club Oslo"
+            },
+            "location": {
+              "@type": "Place",
+              "name": "Bislett Stadion",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "Bislettgata 1",
+                "addressLocality": "Oslo",
+                "postalCode": "0168",
+                "addressCountry": "NO",
+                "addressRegion": "Oslo"
+              }
+            }
+          },
+          {
+            "@type": "SportsEvent",
+            "name": "Sunday Long Run",
+            "description": "Long distance social run with multiple pace groups (5:30 min/km and 6:30 min/km groups available). Perfect for marathon training or building endurance in a social setting. Routes vary weekly but always start and end at Henry & Sally's.",
+            "startDate": "2024-01-01T11:00",
+            "endDate": "2024-12-31T13:00",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "isAccessibleForFree": true,
+            "maximumAttendeeCapacity": 75,
+            "organizer": {
+              "@type": "Organization",
+              "name": "Mikkeller Running Club Oslo"
+            },
+            "location": {
+              "@type": "Place",
+              "name": "Henry & Sally's",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "Møllergata 23",
+                "addressLocality": "Oslo",
+                "postalCode": "0179",
+                "addressCountry": "NO",
+                "addressRegion": "Oslo"
+              }
+            }
+          }
+        ]
       }
     </script>
   </head>
