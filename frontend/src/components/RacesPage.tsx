@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   Box,
   Container,
@@ -27,6 +27,8 @@ import {
   Textarea,
   useToast,
   Divider,
+  OrderedList,
+  ListItem,
 } from "@chakra-ui/react";
 import {
   FaMapMarkerAlt,
@@ -128,6 +130,8 @@ const RacesPage: React.FC = () => {
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [apiDisabled, setApiDisabled] = useState(false);
+  const [apiKeyBlocked, setApiKeyBlocked] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     search: "",
     month: "",
@@ -137,6 +141,28 @@ const RacesPage: React.FC = () => {
   const [commentText, setCommentText] = useState("");
   const [commentingRaceId, setCommentingRaceId] = useState<string | null>(null);
   const toast = useToast();
+
+  // Create refs for month headings
+  const monthRefs = useRef<{ [month: string]: HTMLDivElement | null }>({});
+
+  // Get current month name
+  const getCurrentMonth = (): string => {
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    return monthNames[new Date().getMonth()];
+  };
 
   const monthOrder: { [key: string]: number } = {
     January: 1,
@@ -163,58 +189,124 @@ const RacesPage: React.FC = () => {
     return monthOrder[normalized] ? normalized : month;
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Check if we have data and if it's recent enough
-        if (races.length > 0 && lastUpdated) {
-          const now = Date.now();
-          if (now - lastUpdated < 10 * 60 * 60 * 1000) {
-            // 10 hours in milliseconds
-            console.log("Using cached data from memory");
-            return;
-          }
+  const fetchData = async () => {
+    try {
+      // Check if we have data and if it's recent enough (24 hours)
+      const DAY_IN_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+      if (races.length > 0 && lastUpdated && !apiDisabled && !apiKeyBlocked) {
+        const now = Date.now();
+        if (now - lastUpdated < DAY_IN_MS) {
+          // Less than 24 hours - use cached data
+          console.log(
+            "Using cached data from memory - last updated:",
+            new Date(lastUpdated).toLocaleString()
+          );
+          setIsLoading(false);
+          return;
         }
-
-        setIsLoading(true);
-        const response = await fetchRaces();
-
-        // Ensure we have an array of races
-        const racesData: FirebaseRaceData[] = Array.isArray(response)
-          ? response
-          : Array.isArray(response.races)
-          ? response.races
-          : [];
-
-        // Transform FirebaseRaceData to Race
-        const racesWithIds: Race[] = racesData.map(
-          (race: FirebaseRaceData, index: number) => ({
-            ...race,
-            id: index.toString(),
-            // Convert comments from object to array if they exist
-            comments: race.comments
-              ? Object.entries(race.comments).map(([commentId, comment]) => ({
-                  ...comment,
-                  id: commentId,
-                }))
-              : [],
-            // Ensure excited is initialized
-            excited: race.excited || {},
-          })
-        );
-
-        setRaces(racesWithIds);
-        setLastUpdated(response.lastUpdated || Date.now());
-      } catch (error) {
-        console.error("Error fetching races:", error);
-        setError("Failed to fetch races data");
-      } finally {
-        setIsLoading(false);
       }
-    };
 
+      console.log("Fetching fresh data from Google Sheets");
+      setIsLoading(true);
+      setApiDisabled(false);
+      setApiKeyBlocked(false);
+      setError(null);
+
+      const response = await fetchRaces();
+
+      // Ensure we have an array of races
+      const racesData: FirebaseRaceData[] = Array.isArray(response)
+        ? response
+        : Array.isArray(response.races)
+        ? response.races
+        : [];
+
+      // Transform FirebaseRaceData to Race
+      const racesWithIds: Race[] = racesData.map(
+        (race: FirebaseRaceData, index: number) => ({
+          ...race,
+          id: index.toString(),
+          // Convert comments from object to array if they exist
+          comments: race.comments
+            ? Object.entries(race.comments).map(([commentId, comment]) => ({
+                ...comment,
+                id: commentId,
+              }))
+            : [],
+          // Ensure excited is initialized
+          excited: race.excited || {},
+        })
+      );
+
+      setRaces(racesWithIds);
+      setLastUpdated(response.lastUpdated || Date.now());
+    } catch (error) {
+      console.error("Error fetching races:", error);
+
+      // Check for specific API errors
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      if (errorMessage.includes("Google Sheets API is disabled")) {
+        setError(
+          "The Google Sheets API is currently disabled. This typically happens after periods of inactivity. " +
+            "Please contact the administrator to enable it again."
+        );
+        setApiDisabled(true);
+
+        // Show a toast notification
+        toast({
+          title: "API Error",
+          description:
+            "The Google Sheets API is currently disabled. Using cached data if available.",
+          status: "warning",
+          duration: 10000,
+          isClosable: true,
+          position: "top",
+        });
+      } else if (errorMessage.includes("API key doesn't have permission")) {
+        setError(
+          "Your API key doesn't have permission to use the Google Sheets API. " +
+            "This is likely due to API key restrictions in the Google Cloud Console."
+        );
+        setApiKeyBlocked(true);
+
+        toast({
+          title: "API Key Error",
+          description:
+            "Your API key has restrictions preventing access to the Google Sheets API.",
+          status: "error",
+          duration: 10000,
+          isClosable: true,
+          position: "top",
+        });
+      } else {
+        setError("Failed to fetch races data. " + errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
-  }, [races.length, lastUpdated]);
+  }, []); // Remove dependency array to only run on mount
+
+  // Scroll to current month when data is loaded
+  useEffect(() => {
+    if (!isLoading && races.length > 0) {
+      const currentMonth = getCurrentMonth();
+      const monthRef = monthRefs.current[currentMonth];
+
+      if (monthRef) {
+        // Scroll with a small delay to ensure rendering is complete
+        setTimeout(() => {
+          monthRef.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 300);
+      }
+    }
+  }, [isLoading, races.length]);
 
   const getCountryFlag = (countryCode: string) => {
     try {
@@ -497,7 +589,15 @@ const RacesPage: React.FC = () => {
       // Add month heading if it's the first race of the month
       if (index === 0 || race.month !== array[index - 1]?.month) {
         acc.push(
-          <Box key={`month-${race.month}-${index}`} pt={index !== 0 ? 8 : 0}>
+          <Box
+            key={`month-${race.month}-${index}`}
+            pt={index !== 0 ? 8 : 0}
+            ref={(el) => {
+              if (race.month) {
+                monthRefs.current[race.month] = el;
+              }
+            }}
+          >
             <Heading size="lg" color="#204081" mb={6}>
               {race.month || "Unknown Month"}
             </Heading>
@@ -678,22 +778,92 @@ const RacesPage: React.FC = () => {
   if (error) {
     return (
       <Container maxW="container.xl" py={10}>
-        <Alert
-          status="error"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          textAlign="center"
-          p={6}
-        >
-          <AlertIcon boxSize="40px" mr={0} mb={4} />
-          <Text fontSize="lg" mb={2}>
-            {error}
-          </Text>
-          <Text fontSize="sm" color="gray.600">
-            Please check the browser console for more details.
-          </Text>
+        <Alert status="error" mb={6} borderRadius="md">
+          <AlertIcon />
+          <VStack align="start" spacing={4} width="100%">
+            <Text>{error}</Text>
+
+            {apiDisabled && (
+              <HStack>
+                <Button
+                  colorScheme="blue"
+                  size="sm"
+                  onClick={() => {
+                    window.open(
+                      "https://console.developers.google.com/apis/api/sheets.googleapis.com/overview?project=816386613163",
+                      "_blank"
+                    );
+                  }}
+                >
+                  Enable API
+                </Button>
+                <Button
+                  colorScheme="green"
+                  size="sm"
+                  isLoading={isLoading}
+                  onClick={fetchData}
+                >
+                  Retry Fetch
+                </Button>
+              </HStack>
+            )}
+
+            {apiKeyBlocked && (
+              <VStack align="start" spacing={2} width="100%">
+                <Text fontSize="sm">To fix API key restrictions:</Text>
+                <OrderedList pl={4} fontSize="sm" spacing={1}>
+                  <ListItem>Go to the Google Cloud Console</ListItem>
+                  <ListItem>
+                    Navigate to APIs &amp; Services {"->"} Credentials
+                  </ListItem>
+                  <ListItem>Find and edit your API key</ListItem>
+                  <ListItem>
+                    Under "API restrictions", select "Google Sheets API" in the
+                    allowed APIs
+                  </ListItem>
+                  <ListItem>
+                    If you have domain restrictions, verify your domain is
+                    allowed
+                  </ListItem>
+                </OrderedList>
+                <Button
+                  colorScheme="blue"
+                  size="sm"
+                  mt={2}
+                  onClick={() => {
+                    window.open(
+                      "https://console.cloud.google.com/apis/credentials",
+                      "_blank"
+                    );
+                  }}
+                >
+                  Go to API Credentials
+                </Button>
+                <Button
+                  colorScheme="green"
+                  size="sm"
+                  isLoading={isLoading}
+                  onClick={fetchData}
+                >
+                  Retry Fetch
+                </Button>
+              </VStack>
+            )}
+          </VStack>
         </Alert>
+
+        {races.length > 0 && (
+          <>
+            <Text mb={6} fontStyle="italic">
+              Showing cached data from{" "}
+              {lastUpdated
+                ? new Date(lastUpdated).toLocaleString()
+                : "an earlier fetch"}
+            </Text>
+            {renderFilters()}
+            {renderRaces(filteredRaces)}
+          </>
+        )}
       </Container>
     );
   }

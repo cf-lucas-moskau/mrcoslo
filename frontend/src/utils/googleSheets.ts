@@ -45,6 +45,27 @@ async function fetchFromGoogleSheets(): Promise<RaceData[]> {
 
     if (!response.ok) {
       console.error("API Error Response:", responseData);
+
+      // Handle specific API disabled error
+      if (responseData.error?.status === "PERMISSION_DENIED") {
+        if (responseData.error?.message?.includes("disabled")) {
+          throw new Error(
+            "Google Sheets API is disabled. Please enable it in the Google Cloud Console and try again. " +
+              "This typically happens after periods of inactivity. " +
+              "Visit: https://console.developers.google.com/apis/api/sheets.googleapis.com/overview"
+          );
+        } else if (
+          responseData.error?.details?.[0]?.reason === "API_KEY_SERVICE_BLOCKED"
+        ) {
+          throw new Error(
+            "Your API key doesn't have permission to use the Google Sheets API. " +
+              "Please go to the Google Cloud Console > APIs & Services > Credentials > Your API key > " +
+              "API restrictions, and ensure 'Google Sheets API' is selected. " +
+              "If you're using domain restrictions, also make sure your domain is allowed."
+          );
+        }
+      }
+
       throw new Error(
         `Failed to fetch spreadsheet data: ${
           responseData.error?.message || response.statusText
@@ -153,36 +174,45 @@ export async function fetchRaces(): Promise<{
     }
 
     console.log("Cache missing or expired, fetching new data");
-    const races = await fetchFromGoogleSheets();
 
-    if (!Array.isArray(races)) {
-      console.error("Invalid races data:", races);
-      throw new Error("Invalid data format received from Google Sheets");
-    }
+    try {
+      const races = await fetchFromGoogleSheets();
 
-    // Get existing race data to preserve comments and excited fields
-    const existingRacesSnapshot = await get(ref(db, "raceCache/races"));
-    const existingRaces = existingRacesSnapshot.val() || {};
+      if (!Array.isArray(races)) {
+        console.error("Invalid races data:", races);
+        throw new Error("Invalid data format received from Google Sheets");
+      }
 
-    // Merge new race data with existing data
-    const mergedRaces = races.map((race, index) => {
-      const existingRace = existingRaces[index];
-      return {
-        ...race,
-        // Preserve existing comments and excited data if they exist
-        comments: existingRace?.comments || [],
-        excited: existingRace?.excited || {},
+      // Get existing race data to preserve comments and excited fields
+      const existingRacesSnapshot = await get(ref(db, "raceCache/races"));
+      const existingRaces = existingRacesSnapshot.val() || {};
+
+      // Merge new race data with existing data
+      const mergedRaces = races.map((race, index) => {
+        const existingRace = existingRaces[index];
+        return {
+          ...race,
+          // Preserve existing comments and excited data if they exist
+          comments: existingRace?.comments || [],
+          excited: existingRace?.excited || {},
+        };
+      });
+
+      const newCacheData: CacheData = {
+        races: mergedRaces,
+        lastUpdated: now,
       };
-    });
 
-    const newCacheData: CacheData = {
-      races: mergedRaces,
-      lastUpdated: now,
-    };
+      console.log("Updating cache with merged data");
+      await set(cacheRef, newCacheData);
+      return newCacheData;
+    } catch (error) {
+      // Log the specific Google Sheets error
+      console.error("Failed to fetch from Google Sheets:", error);
 
-    console.log("Updating cache with merged data");
-    await set(cacheRef, newCacheData);
-    return newCacheData;
+      // Re-throw after logging, to be caught by the outer catch
+      throw error;
+    }
   } catch (error) {
     console.error("Error in fetchRaces:", error);
 

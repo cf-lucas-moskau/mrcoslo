@@ -12,6 +12,7 @@ import CaptainsPage from "./components/CaptainsPage";
 import OrderPage from "./components/OrderPage";
 import RacesPage from "./components/RacesPage";
 import PhotosPage from "./components/PhotosPage";
+import HolmenkollenPage from "./components/HolmenkollenPage";
 import FeedbackButton from "./components/FeedbackButton";
 import MostLikedPhoto from "./components/MostLikedPhoto";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
@@ -61,6 +62,7 @@ function App() {
               <Route path="/order" element={<OrderPage />} />
               <Route path="/races" element={<RacesPage />} />
               <Route path="/photos" element={<PhotosPage />} />
+              <Route path="/holmenkollen" element={<HolmenkollenPage />} />
             </Routes>
           </Box>
           <FeedbackButton />

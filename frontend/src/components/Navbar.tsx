@@ -120,6 +120,7 @@ const Navbar: React.FC = () => {
     { name: "Races", path: "/races" },
     { name: "Photos", path: "/photos" },
     { name: "Order", path: "/order" },
+    { name: "Holmenkollen", path: "/holmenkollen" },
   ];
 
   const handleLogout = async () => {
