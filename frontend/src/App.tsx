@@ -15,6 +15,10 @@ import PhotosPage from "./components/PhotosPage";
 import HolmenkollenPage from "./components/HolmenkollenPage";
 import FeedbackButton from "./components/FeedbackButton";
 import MostLikedPhoto from "./components/MostLikedPhoto";
+import PrivacyPolicy from "./components/PrivacyPolicy";
+import TermsOfUse from "./components/TermsOfUse";
+import CookiePolicy from "./components/CookiePolicy";
+import Footer from "./components/Footer";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 
@@ -63,9 +67,13 @@ function App() {
               <Route path="/races" element={<RacesPage />} />
               <Route path="/photos" element={<PhotosPage />} />
               <Route path="/holmenkollen" element={<HolmenkollenPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-use" element={<TermsOfUse />} />
+              <Route path="/cookie-policy" element={<CookiePolicy />} />
             </Routes>
           </Box>
           <FeedbackButton />
+          <Footer />
         </div>
       </Router>
     </AuthProvider>
