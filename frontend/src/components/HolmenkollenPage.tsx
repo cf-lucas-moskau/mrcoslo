@@ -74,6 +74,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { ref, get, set, update, remove, push } from "firebase/database";
 import { db } from "../firebase";
+import LoginButton from "./LoginButton";
 
 // Interface for relay stage signup
 interface StageSignup {
@@ -985,15 +986,9 @@ const HolmenkollenPage: React.FC = () => {
           </Box>
 
           {!currentUser && (
-            <Button
-              leftIcon={<FaFacebook />}
-              colorScheme="facebook"
-              onClick={signInWithFacebook}
-              mb={4}
-              size="lg"
-            >
-              Log in with Facebook to Sign Up
-            </Button>
+            <Box mb={4}>
+              <LoginButton />
+            </Box>
           )}
 
           <Alert status="info" mb={6} borderRadius="md">
@@ -1785,14 +1780,9 @@ const HolmenkollenPage: React.FC = () => {
           <ModalBody>
             {!currentUser && (
               <VStack mb={4} align="stretch">
-                <Button
-                  leftIcon={<FaFacebook />}
-                  colorScheme="facebook"
-                  onClick={signInWithFacebook}
-                  mb={2}
-                >
-                  Log in with Facebook
-                </Button>
+                <Box mb={2} width="100%">
+                  <LoginButton />
+                </Box>
 
                 <Text textAlign="center" fontSize="sm">
                   - or -

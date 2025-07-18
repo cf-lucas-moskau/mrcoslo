@@ -24,19 +24,19 @@ const Footer: React.FC = () => {
           mb={8}
         >
           <Text fontSize="xl" fontWeight="bold">
-            MRCO Oslo
+            MRC Oslo
           </Text>
 
           <Stack direction="row" spacing={6}>
             <Link
-              href="https://www.facebook.com/groups/oslorunning"
+              href="https://www.facebook.com/mrcosl"
               isExternal
               _hover={{ color: "blue.400" }}
             >
               <Icon as={FaFacebook} boxSize={6} />
             </Link>
             <Link
-              href="https://www.instagram.com/mrcoslo"
+              href="https://www.instagram.com/mrc_oslo"
               isExternal
               _hover={{ color: "blue.400" }}
             >
@@ -57,7 +57,7 @@ const Footer: React.FC = () => {
           pt={6}
         >
           <Text fontSize="sm" color="gray.400">
-            © {new Date().getFullYear()} MRCO Oslo. All rights reserved.
+            © {new Date().getFullYear()} MRC Oslo. All rights reserved.
           </Text>
 
           <HStack spacing={4} fontSize="sm">

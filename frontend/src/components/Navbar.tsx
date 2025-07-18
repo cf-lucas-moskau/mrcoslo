@@ -10,16 +10,10 @@ import {
   IconButton,
   Stack,
   useBreakpointValue,
-  Avatar,
-  Button,
-  Text,
-  HStack,
 } from "@chakra-ui/react";
 import { HamburgerIcon } from "@chakra-ui/icons";
 import { motion, useAnimation } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import LoginButton from "./LoginButton";
 
 const SCROLL_UP = "up";
 const SCROLL_DOWN = "down";
@@ -36,7 +30,6 @@ const Navbar: React.FC = () => {
   const [scrollDirection, setScrollDirection] = useState(SCROLL_UP);
   const [prevScrollY, setPrevScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
-  const { currentUser, userData, logout, signInWithFacebook } = useAuth();
 
   const handleNavigation = (sectionId: string) => {
     if (window.location.pathname === "/") {
@@ -118,19 +111,7 @@ const Navbar: React.FC = () => {
   const menuItems: MenuItem[] = [
     { name: "Home", path: "/" },
     { name: "Races", path: "/races" },
-    { name: "Photos", path: "/photos" },
-    { name: "Order", path: "/order" },
-    { name: "Holmenkollen", path: "/holmenkollen" },
   ];
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
 
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -189,33 +170,6 @@ const Navbar: React.FC = () => {
                   </Box>
                 ))}
               </Stack>
-              {currentUser ? (
-                <Menu>
-                  <MenuButton
-                    as={Button}
-                    rounded="full"
-                    variant="link"
-                    cursor="pointer"
-                    minW={0}
-                  >
-                    <Avatar
-                      size="sm"
-                      name={userData?.name || "User"}
-                      src={userData?.photoURL || undefined}
-                    />
-                  </MenuButton>
-                  <MenuList bgColor="white">
-                    <MenuItem color="gray.800">
-                      <Text>{userData?.name}</Text>
-                    </MenuItem>
-                    <MenuItem color="gray.800" onClick={handleLogout}>
-                      Logout
-                    </MenuItem>
-                  </MenuList>
-                </Menu>
-              ) : (
-                <LoginButton />
-              )}
             </>
           )}
 
@@ -244,30 +198,6 @@ const Navbar: React.FC = () => {
                     {item.name}
                   </MenuItem>
                 ))}
-                {currentUser ? (
-                  <>
-                    <MenuItem color="gray.800">
-                      <HStack>
-                        <Avatar
-                          size="xs"
-                          name={userData?.name || "User"}
-                          src={userData?.photoURL || undefined}
-                        />
-                        <Text>{userData?.name}</Text>
-                      </HStack>
-                    </MenuItem>
-                    <MenuItem color="gray.800" onClick={handleLogout}>
-                      Logout
-                    </MenuItem>
-                  </>
-                ) : (
-                  <MenuItem
-                    color="gray.800"
-                    onClick={() => signInWithFacebook()}
-                  >
-                    Login with Facebook
-                  </MenuItem>
-                )}
               </MenuList>
             </Menu>
           )}

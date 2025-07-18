@@ -81,7 +81,7 @@ const PrivacyPolicy: React.FC = () => {
           </Heading>
 
           <Text mb={4}>
-            MRCO Oslo verwendet die gesammelten Daten für verschiedene Zwecke:
+            MRC Oslo verwendet die gesammelten Daten für verschiedene Zwecke:
           </Text>
 
           <UnorderedList mb={6} pl={6}>

@@ -7,6 +7,9 @@ import {
   onAuthStateChanged,
   User,
   updateProfile,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from "firebase/auth";
 import { db } from "../firebase";
 import { ref, set, get } from "firebase/database";
@@ -14,7 +17,7 @@ import { ref, set, get } from "firebase/database";
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
-  signInWithFacebook: () => Promise<void>;
+  signInWithFacebook: (forceRedirect?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   userData: UserData | null;
 }
@@ -42,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialRedirectChecked, setInitialRedirectChecked] = useState(false);
   const auth = getAuth();
 
   // Function to check if device is mobile
@@ -71,107 +75,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Handle Facebook OAuth response
+  // Check for redirect result when the component mounts
   useEffect(() => {
-    const handleFacebookResponse = async () => {
-      const params = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = params.get("access_token");
+    const checkRedirectResult = async () => {
+      try {
+        setLoading(true);
+        console.log("Checking for redirect result...");
+        const result = await getRedirectResult(auth);
 
-      if (accessToken) {
-        try {
-          console.log("Got Facebook access token, fetching user data");
-
-          // Fetch user data from Facebook
-          const response = await fetch(
-            `https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${accessToken}`
-          );
-          const fbUserData = await response.json();
-          console.log("Facebook user data:", fbUserData);
-
-          // Create auth credential with additional profile data
-          const credential = FacebookAuthProvider.credential(accessToken);
-          const result = await signInWithCredential(auth, credential);
-
-          // Get the high-res photo URL
-          const photoURL =
-            fbUserData.picture?.data?.url || result.user.photoURL;
-
-          // Update the user's profile with the high-res photo URL
-          if (result.user) {
-            // First update the Firebase Auth user profile
-            await updateProfile(result.user, {
-              displayName: fbUserData.name || result.user.displayName,
-              photoURL: photoURL,
-            });
-
-            // Then update our custom user data
-            const customUserData = {
-              ...result.user,
-              displayName: fbUserData.name || result.user.displayName,
-              photoURL: photoURL,
-            };
-
-            await saveUserData(customUserData);
-
-            // Update the current user state
-            setCurrentUser({
-              ...result.user,
-              photoURL: photoURL,
-            });
-          }
-
-          console.log("Firebase sign in successful:", result.user.uid);
-
-          // Clean up the URL and redirect back to original path if exists
-          const returnPath = sessionStorage.getItem("fbAuthReturnPath");
-          sessionStorage.removeItem("fbAuthReturnPath");
-          sessionStorage.removeItem("fbAuthState");
-
-          if (returnPath && returnPath !== "/") {
-            window.location.href = returnPath;
-          } else {
-            window.history.replaceState(
-              {},
-              document.title,
-              window.location.pathname
-            );
-          }
-        } catch (error) {
-          console.error("Error signing in with credential:", error);
+        if (result) {
+          // User just signed in with a redirect flow
+          console.log("Redirect sign-in successful:", result.user.uid);
+          await saveUserData(result.user);
         }
+      } catch (error: any) {
+        console.error("Redirect sign-in error:", error);
+        if (error.code === "auth/account-exists-with-different-credential") {
+          alert(
+            "An account already exists with the same email address but different sign-in credentials. Please sign in using your original method."
+          );
+        } else {
+          alert(`Error signing in with Facebook: ${error.message}`);
+        }
+      } finally {
+        setInitialRedirectChecked(true);
+        setLoading(false);
       }
     };
 
-    handleFacebookResponse();
-  }, [auth]);
+    checkRedirectResult();
+  }, []);
 
-  async function signInWithFacebook() {
+  async function signInWithFacebook(forceRedirect?: boolean) {
     try {
-      const FB_APP_ID = process.env.REACT_APP_FACEBOOK_APP_ID;
-      if (!FB_APP_ID) {
-        throw new Error("Facebook App ID not configured");
+      const provider = new FacebookAuthProvider();
+      provider.addScope("email");
+      provider.addScope("public_profile");
+
+      // Use either forced redirect or check device type
+      if (forceRedirect || isMobileDevice()) {
+        console.log(
+          forceRedirect
+            ? "Forcing redirect flow for testing"
+            : "Mobile device detected, using redirect flow"
+        );
+        // For mobile devices or when testing, use redirect flow
+        await signInWithRedirect(auth, provider);
+        // The redirect will happen here, and the rest of this function won't execute
+        // The result will be caught in the useEffect hook that checks for redirect results
+      } else {
+        console.log("Desktop device detected, using popup flow");
+        // For desktop, use a popup flow
+        const result = await signInWithPopup(auth, provider);
+
+        // The signed-in user info
+        const user = result.user;
+        console.log("Firebase Facebook sign-in successful:", user.uid);
+
+        // Save the user data to our database
+        await saveUserData(user);
+      }
+    } catch (error: any) {
+      console.error("Facebook sign in error:", error);
+
+      // Handle specific errors
+      if (error.code === "auth/account-exists-with-different-credential") {
+        alert(
+          "An account already exists with the same email address but different sign-in credentials. Please sign in using your original method."
+        );
+      } else if (error.code === "auth/popup-closed-by-user") {
+        console.log(
+          "Sign-in popup was closed by the user before finalizing the sign-in."
+        );
+      } else if (error.code === "auth/cancelled-popup-request") {
+        console.log("Sign-in popup request was cancelled.");
+      } else if (error.code === "auth/popup-blocked") {
+        alert(
+          "The sign-in popup was blocked by the browser. Please allow popups for this site and try again."
+        );
+      } else {
+        alert(`Error signing in with Facebook: ${error.message}`);
       }
 
-      // Always use root path for Facebook redirect
-      const redirectUri = `${window.location.origin}/`;
-      const state = Math.random().toString(36).substring(7);
-
-      // Store state and return path for validation and redirect back
-      sessionStorage.setItem("fbAuthState", state);
-      sessionStorage.setItem("fbAuthReturnPath", window.location.pathname);
-
-      const facebookAuthUrl =
-        `https://www.facebook.com/v12.0/dialog/oauth?` +
-        `client_id=${FB_APP_ID}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&state=${state}` +
-        `&response_type=token` +
-        `&scope=email,public_profile`;
-
-      console.log("Redirecting to Facebook auth URL:", facebookAuthUrl);
-      window.location.href = facebookAuthUrl;
-    } catch (error) {
-      console.error("Facebook sign in error:", error);
       throw error;
     }
   }
@@ -186,6 +171,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // Don't set up the auth state listener until we've checked for redirect results
+    if (!initialRedirectChecked) {
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("Auth state changed:", user?.uid);
 
@@ -209,7 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return unsubscribe;
-  }, [auth]);
+  }, [auth, initialRedirectChecked]);
 
   const value = {
     currentUser,

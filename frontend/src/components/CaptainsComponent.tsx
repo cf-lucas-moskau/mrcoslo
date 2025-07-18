@@ -27,11 +27,11 @@ const CaptainsComponent = () => {
         "Ultra runner extraordinaire and master of iron-hard ab training sessions.",
     },
     {
-      name: "Stian",
-      role: "Long Run Captain",
+      name: "Dory",
+      role: "Long Run & Backstube Captain",
       image: "/images/captain3.jpg",
       shortBio:
-        "Our long run specialist, guiding runners through Oslo's best distance routes.",
+        "You can find her snacking on vegan Backstube or smashing 160k training weeks.",
     },
   ];
 

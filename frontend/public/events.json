@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Monday Social Run",
+    "time": "18:00",
+    "date": "Every Monday",
+    "location": "Henry & Sally's",
+    "description": "Join us for a social run with multiple pace groups. Perfect for all levels!"
+  },
+  {
+    "title": "Thursday Track Attack",
+    "time": "19:30",
+    "date": "Every Thursday",
+    "location": "Bislett Stadion",
+    "description": "Interval training sessions to improve your speed and fitness."
+  },
+  {
+    "title": "Sunday Long Run",
+    "time": "11:00",
+    "date": "Every Sunday",
+    "location": "Henry & Sally's",
+    "description": "Long distance social runs with multiple pace groups."
+  }
+]

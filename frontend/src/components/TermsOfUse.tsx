@@ -25,7 +25,7 @@ const TermsOfUse: React.FC = () => {
           </Text>
 
           <Text mb={6}>
-            Willkommen bei MRCO Oslo. Diese Nutzungsbedingungen regeln Ihre
+            Willkommen bei MRC Oslo. Diese Nutzungsbedingungen regeln Ihre
             Nutzung unserer Website und mobilen Anwendung (zusammen die
             "Dienste"). Bitte lesen Sie diese Bedingungen sorgfältig durch,
             bevor Sie auf unsere Dienste zugreifen oder sie nutzen.

@@ -9,6 +9,7 @@ import ImageSlider from "./components/ImageSlider";
 import RunDetailPage from "./components/RunDetailPage";
 import CaptainsComponent from "./components/CaptainsComponent";
 import CaptainsPage from "./components/CaptainsPage";
+import RacesPromoSection from "./components/RacesPromoSection";
 import OrderPage from "./components/OrderPage";
 import RacesPage from "./components/RacesPage";
 import PhotosPage from "./components/PhotosPage";
@@ -57,6 +58,7 @@ function App() {
                     </Box>
                     <RunDaysComponent />
                     <CaptainsComponent />
+                    <RacesPromoSection />
                     <EventsComponent />
                   </>
                 }
